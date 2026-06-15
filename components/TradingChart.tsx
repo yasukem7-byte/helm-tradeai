@@ -233,20 +233,18 @@ export default function TradingChart({
   const [error, setError] = useState("");
   const [candles, setCandles] = useState<Candle[]>([]);
 
-  // Drawing state
+  // Drawing state — すべて ref で管理して即時 redraw
   const [drawMode, setDrawMode] = useState(false);
   const [drawColor, setDrawColor] = useState("#38bdf8");
-  const [lines, setLines] = useState<DrawLine[]>([]);
-  const [firstPoint, setFirstPoint] = useState<DrawPoint | null>(null);
-  const [mousePos, setMousePos] = useState<DrawPoint | null>(null);
+  const [, forceUpdate] = useState(0); // UI再描画用
   const linesRef = useRef<DrawLine[]>([]);
-  linesRef.current = lines;
   const firstPointRef = useRef<DrawPoint | null>(null);
-  firstPointRef.current = firstPoint;
-  const drawColorRef = useRef(drawColor);
-  drawColorRef.current = drawColor;
+  const mousePosRef = useRef<DrawPoint | null>(null);
+  const drawColorRef = useRef("#38bdf8");
+  const drawModeRef = useRef(false);
   const draggingRef = useRef<{ lineIdx: number; point: "p1" | "p2" } | null>(null);
   const didDragRef = useRef(false);
+  const redrawRef = useRef<(() => void) | null>(null);
 
   // 日本株判定
   const isJapanese = (sym: string) => /^\d{4}$/.test(sym.trim()) || /^\d{3}[A-Z]$/.test(sym.trim());
@@ -528,16 +526,23 @@ export default function TradingChart({
     const container = mainRef.current;
     if (!canvas || !container) return;
 
-    const resize = () => {
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
-      redraw();
-    };
-
-    const redraw = (preview?: DrawPoint) => {
+    const redraw = () => {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const drawDot = (p: DrawPoint, color: string) => {
+        ctx.beginPath();
+        ctx.fillStyle = color;
+        ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.strokeStyle = "#131722";
+        ctx.lineWidth = 1.5;
+        ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+        ctx.stroke();
+      };
+
       // Draw saved lines
       linesRef.current.forEach((line) => {
         ctx.beginPath();
@@ -546,121 +551,117 @@ export default function TradingChart({
         ctx.moveTo(line.p1.x, line.p1.y);
         ctx.lineTo(line.p2.x, line.p2.y);
         ctx.stroke();
-        // Draw draggable endpoints
-        [line.p1, line.p2].forEach((p) => {
-          ctx.beginPath();
-          ctx.fillStyle = line.color;
-          ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.beginPath();
-          ctx.strokeStyle = "#131722";
-          ctx.lineWidth = 1.5;
-          ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
-          ctx.stroke();
-        });
+        drawDot(line.p1, line.color);
+        drawDot(line.p2, line.color);
       });
-      // Draw in-progress line preview
+
+      // Draw first point and preview line
       const fp = firstPointRef.current;
+      const mp = mousePosRef.current;
       const dc = drawColorRef.current;
       if (fp) {
-        // 1点目は常に表示
-        ctx.beginPath();
-        ctx.fillStyle = dc;
-        ctx.arc(fp.x, fp.y, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.strokeStyle = "#131722";
-        ctx.lineWidth = 1.5;
-        ctx.arc(fp.x, fp.y, 6, 0, Math.PI * 2);
-        ctx.stroke();
-        // マウスが動いたらプレビュー線を表示
-        if (preview) {
+        drawDot(fp, dc);
+        if (mp) {
           ctx.beginPath();
           ctx.strokeStyle = dc;
           ctx.lineWidth = 2;
           ctx.setLineDash([6, 3]);
           ctx.moveTo(fp.x, fp.y);
-          ctx.lineTo(preview.x, preview.y);
+          ctx.lineTo(mp.x, mp.y);
           ctx.stroke();
           ctx.setLineDash([]);
         }
       }
     };
 
+    redrawRef.current = redraw;
+
+    const resize = () => {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      redraw();
+    };
+
     resize();
     window.addEventListener("resize", resize);
-
-    // Re-draw when lines or firstPoint changes
-    redraw(mousePos ?? undefined);
-
     return () => window.removeEventListener("resize", resize);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, firstPoint, mousePos, drawColor]);
+  }, []);
+
+  const getPos = (e: React.MouseEvent<HTMLCanvasElement>): DrawPoint => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
 
   const findNearPoint = (pos: DrawPoint, threshold = 10) => {
     for (let i = linesRef.current.length - 1; i >= 0; i--) {
       const line = linesRef.current[i];
       for (const pt of ["p1", "p2"] as const) {
         const p = line[pt];
-        const dist = Math.sqrt((p.x - pos.x) ** 2 + (p.y - pos.y) ** 2);
-        if (dist <= threshold) return { lineIdx: i, point: pt };
+        if (Math.sqrt((p.x - pos.x) ** 2 + (p.y - pos.y) ** 2) <= threshold)
+          return { lineIdx: i, point: pt };
       }
     }
     return null;
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const pos = getPos(e);
     const hit = findNearPoint(pos);
-    if (hit) {
-      draggingRef.current = hit;
-      didDragRef.current = false;
-    }
+    if (hit) { draggingRef.current = hit; didDragRef.current = false; }
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-
+    const pos = getPos(e);
     if (draggingRef.current) {
       didDragRef.current = true;
       const { lineIdx, point } = draggingRef.current;
-      setLines(prev => prev.map((l, i) => i === lineIdx ? { ...l, [point]: pos } : l));
+      linesRef.current = linesRef.current.map((l, i) =>
+        i === lineIdx ? { ...l, [point]: pos } : l
+      );
+      redrawRef.current?.();
+      forceUpdate(n => n + 1);
       return;
     }
-
-    // Update cursor
-    if (canvasRef.current) {
-      const hit = findNearPoint(pos);
-      canvasRef.current.style.cursor = hit ? "move" : drawMode ? "crosshair" : "default";
-    }
-
-    if (drawMode && firstPoint) {
-      setMousePos(pos);
+    const hit = findNearPoint(pos);
+    if (canvasRef.current)
+      canvasRef.current.style.cursor = hit ? "move" : drawModeRef.current ? "crosshair" : "default";
+    if (drawModeRef.current && firstPointRef.current) {
+      mousePosRef.current = pos;
+      redrawRef.current?.();
     }
   };
 
-  const handleCanvasMouseUp = () => {
-    draggingRef.current = null;
-  };
+  const handleCanvasMouseUp = () => { draggingRef.current = null; };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (didDragRef.current) { didDragRef.current = false; return; }
-    if (!drawMode) return;
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const p = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    if (!firstPoint) {
-      setFirstPoint(p);
+    if (!drawModeRef.current) return;
+    const p = getPos(e);
+    if (!firstPointRef.current) {
+      firstPointRef.current = p;
+      redrawRef.current?.();
     } else {
-      setLines((prev) => [...prev, { p1: firstPoint, p2: p, color: drawColor }]);
-      setFirstPoint(null);
-      setMousePos(null);
+      linesRef.current = [...linesRef.current, { p1: firstPointRef.current, p2: p, color: drawColorRef.current }];
+      firstPointRef.current = null;
+      mousePosRef.current = null;
+      redrawRef.current?.();
+      forceUpdate(n => n + 1);
     }
   };
 
-  const undoLine = () => setLines((prev) => prev.slice(0, -1));
-  const clearLines = () => { setLines([]); setFirstPoint(null); };
+  const undoLine = () => {
+    linesRef.current = linesRef.current.slice(0, -1);
+    redrawRef.current?.();
+    forceUpdate(n => n + 1);
+  };
+  const clearLines = () => {
+    linesRef.current = [];
+    firstPointRef.current = null;
+    mousePosRef.current = null;
+    redrawRef.current?.();
+    forceUpdate(n => n + 1);
+  };
 
   // Touch event handlers (mobile)
   const getPosFromTouch = (e: React.TouchEvent<HTMLCanvasElement>): DrawPoint => {
@@ -671,43 +672,40 @@ export default function TradingChart({
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     const pos = getPosFromTouch(e);
-    const hit = findNearPoint(pos, 20); // larger threshold for touch
-    if (hit) {
-      e.preventDefault();
-      draggingRef.current = hit;
-      didDragRef.current = false;
-    } else if (drawMode) {
-      e.preventDefault();
-    }
+    const hit = findNearPoint(pos, 20);
+    if (hit) { e.preventDefault(); draggingRef.current = hit; didDragRef.current = false; }
+    else if (drawModeRef.current) { e.preventDefault(); }
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!draggingRef.current && !(drawMode && firstPoint)) return;
+    if (!draggingRef.current && !(drawModeRef.current && firstPointRef.current)) return;
     e.preventDefault();
     const pos = getPosFromTouch(e);
     if (draggingRef.current) {
       didDragRef.current = true;
       const { lineIdx, point } = draggingRef.current;
-      setLines(prev => prev.map((l, i) => i === lineIdx ? { ...l, [point]: pos } : l));
-    } else if (drawMode && firstPoint) {
-      setMousePos(pos);
+      linesRef.current = linesRef.current.map((l, i) => i === lineIdx ? { ...l, [point]: pos } : l);
+      redrawRef.current?.();
+    } else if (drawModeRef.current && firstPointRef.current) {
+      mousePosRef.current = pos;
+      redrawRef.current?.();
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (draggingRef.current) {
-      draggingRef.current = null;
-      return;
-    }
-    if (!drawMode) return;
+    if (draggingRef.current) { draggingRef.current = null; return; }
+    if (!drawModeRef.current) return;
     e.preventDefault();
     const pos = getPosFromTouch(e);
-    if (!firstPoint) {
-      setFirstPoint(pos);
+    if (!firstPointRef.current) {
+      firstPointRef.current = pos;
+      redrawRef.current?.();
     } else {
-      setLines(prev => [...prev, { p1: firstPoint, p2: pos, color: drawColor }]);
-      setFirstPoint(null);
-      setMousePos(null);
+      linesRef.current = [...linesRef.current, { p1: firstPointRef.current, p2: pos, color: drawColorRef.current }];
+      firstPointRef.current = null;
+      mousePosRef.current = null;
+      redrawRef.current?.();
+      forceUpdate(n => n + 1);
     }
   };
 
@@ -791,7 +789,12 @@ export default function TradingChart({
           {/* Drawing toolbar */}
           <div className="flex items-center gap-1 px-3 py-1 border-b border-[#1e222d]">
             <button
-              onClick={() => { setDrawMode(!drawMode); setFirstPoint(null); }}
+              onClick={() => {
+                const next = !drawMode;
+                drawModeRef.current = next;
+                setDrawMode(next);
+                if (!next) { firstPointRef.current = null; mousePosRef.current = null; redrawRef.current?.(); }
+              }}
               className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
                 drawMode ? "bg-orange-500 text-white" : "text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39]"
               }`}
@@ -801,7 +804,7 @@ export default function TradingChart({
                 <circle cx="5" cy="19" r="2" fill="currentColor" stroke="none" />
                 <circle cx="19" cy="5" r="2" fill="currentColor" stroke="none" />
               </svg>
-              {drawMode ? (firstPoint ? "2点目をクリック" : "1点目をクリック") : "線を引く"}
+              {drawMode ? (firstPointRef.current ? "2点目をクリック" : "1点目をクリック") : "線を引く"}
             </button>
             {drawMode && (
               <>
@@ -813,14 +816,14 @@ export default function TradingChart({
                 ].map(({ color }) => (
                   <button
                     key={color}
-                    onClick={() => setDrawColor(color)}
+                    onClick={() => { drawColorRef.current = color; setDrawColor(color); }}
                     className={`w-5 h-5 rounded-full border-2 transition-all ${drawColor === color ? "border-white scale-125" : "border-transparent"}`}
                     style={{ backgroundColor: color }}
                   />
                 ))}
               </>
             )}
-            {lines.length > 0 && (
+            {linesRef.current.length > 0 && (
               <>
                 <button onClick={undoLine} className="px-2 py-1 text-xs text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded">
                   ↩ 戻す
@@ -838,7 +841,7 @@ export default function TradingChart({
             <canvas
               ref={canvasRef}
               className="absolute inset-0 w-full h-full"
-              style={{ pointerEvents: (drawMode || lines.length > 0) ? "auto" : "none" }}
+              style={{ pointerEvents: (drawMode || linesRef.current.length > 0) ? "auto" : "none" }}
               onMouseDown={handleCanvasMouseDown}
               onMouseMove={handleCanvasMouseMove}
               onMouseUp={handleCanvasMouseUp}
