@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import ApiKeyModal from "@/components/ApiKeyModal";
 import TopBar from "@/components/TopBar";
 import RightPanel from "@/components/RightPanel";
+import MobileTabBar from "@/components/MobileTabBar";
 
 const TradingChart = dynamic(() => import("@/components/TradingChart"), {
   ssr: false,
@@ -48,8 +49,10 @@ export default function Home() {
   const [range, setRange] = useState("3M");
   const [watchlist, setWatchlist] = useState<WatchItem[]>([]);
   const [rightTab, setRightTab] = useState<"watch" | "ai">("watch");
+  const [mobileTab, setMobileTab] = useState<"chart" | "watch" | "ai">("chart");
   const [screenshotImage, setScreenshotImage] = useState<string | null>(null);
   const takeScreenshotRef = useRef<(() => void) | null>(null);
+  const touchStartX = useRef(0);
 
   useEffect(() => {
     const savedApiKey = localStorage.getItem("claude_api_key") || "";
@@ -217,6 +220,19 @@ export default function Home() {
     alert("URLをコピーしました！");
   };
 
+  const handleSwipeStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleSwipeEnd = (e: React.TouchEvent) => {
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    const tabs = ["chart", "watch", "ai"] as const;
+    const idx = tabs.indexOf(mobileTab);
+    if (delta < -60 && idx < tabs.length - 1) setMobileTab(tabs[idx + 1]);
+    if (delta > 60 && idx > 0) setMobileTab(tabs[idx - 1]);
+  };
+
+  const rightPanelTab = mobileTab === "ai" ? "ai" : "watch";
+
   return (
     <div className="flex flex-col h-screen bg-[#131722] text-white select-none">
       {showModal && (
@@ -235,54 +251,72 @@ export default function Home() {
         onAddWatch={addToWatchlist}
       />
 
-      <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
-        {/* Chart */}
+      {/* ── Desktop layout ── */}
+      <div className="hidden md:flex flex-1 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <TradingChart
-            symbol={symbol}
-            interval={interval}
-            range={range}
-            onRangeChange={setRange}
-            indicators={indicators}
+            symbol={symbol} interval={interval} range={range}
+            onRangeChange={setRange} indicators={indicators}
             twelveDataKey={twelveDataKey}
-            onPriceUpdate={(price, change, changePct) =>
-              updateWatchPrice(symbol, price, change, changePct)
-            }
-            onScreenshot={(base64) => {
-              setScreenshotImage(base64);
-              setRightTab("ai");
-            }}
+            onPriceUpdate={(price, change, changePct) => updateWatchPrice(symbol, price, change, changePct)}
+            onScreenshot={(base64) => { setScreenshotImage(base64); setRightTab("ai"); }}
+            onReadyToScreenshot={(fn) => { takeScreenshotRef.current = fn; }}
+          />
+        </div>
+        <RightPanel
+          tab={rightTab} onTabChange={setRightTab}
+          watchlist={watchlist} activeSymbol={symbol}
+          onSelectSymbol={handleSymbolChange} onRemoveSymbol={removeFromWatchlist}
+          apiKey={apiKey} symbol={symbol} interval={interval} indicators={indicators}
+          onAddWatch={addToWatchlist}
+          screenshotImage={screenshotImage} onScreenshotConsumed={() => setScreenshotImage(null)}
+          onTakeScreenshot={() => { setRightTab("ai"); takeScreenshotRef.current?.(); }}
+          onReorder={(newList) => { setWatchlist(newList); saveWatchlist(newList); }}
+        />
+      </div>
+
+      {/* ── Mobile layout ── */}
+      <div
+        className="md:hidden flex-1 overflow-hidden"
+        onTouchStart={handleSwipeStart}
+        onTouchEnd={handleSwipeEnd}
+      >
+        {/* Chart tab */}
+        <div className={`w-full h-full flex flex-col ${mobileTab === "chart" ? "block" : "hidden"}`}>
+          <TradingChart
+            symbol={symbol} interval={interval} range={range}
+            onRangeChange={setRange} indicators={indicators}
+            twelveDataKey={twelveDataKey}
+            onPriceUpdate={(price, change, changePct) => updateWatchPrice(symbol, price, change, changePct)}
+            onScreenshot={(base64) => { setScreenshotImage(base64); setMobileTab("ai"); }}
             onReadyToScreenshot={(fn) => { takeScreenshotRef.current = fn; }}
           />
         </div>
 
-        {/* Right Panel - desktop: right side, mobile: bottom */}
-        <div className="md:contents h-[45vh] md:h-auto flex-shrink-0 border-t border-[#2a2e39] md:border-t-0">
-        <RightPanel
-          tab={rightTab}
-          onTabChange={setRightTab}
-          watchlist={watchlist}
-          activeSymbol={symbol}
-          onSelectSymbol={handleSymbolChange}
-          onRemoveSymbol={removeFromWatchlist}
-          apiKey={apiKey}
-          symbol={symbol}
-          interval={interval}
-          indicators={indicators}
-          onAddWatch={addToWatchlist}
-          screenshotImage={screenshotImage}
-          onScreenshotConsumed={() => setScreenshotImage(null)}
-          onTakeScreenshot={() => {
-            setRightTab("ai");
-            takeScreenshotRef.current?.();
-          }}
-          onReorder={(newList) => {
-            setWatchlist(newList);
-            saveWatchlist(newList);
-          }}
-        />
+        {/* Watch / AI tab */}
+        <div className={`w-full h-full ${mobileTab !== "chart" ? "block" : "hidden"}`}>
+          <RightPanel
+            tab={rightPanelTab} onTabChange={(t) => { setRightTab(t); setMobileTab(t); }}
+            watchlist={watchlist} activeSymbol={symbol}
+            onSelectSymbol={(s) => { handleSymbolChange(s); setMobileTab("chart"); }}
+            onRemoveSymbol={removeFromWatchlist}
+            apiKey={apiKey} symbol={symbol} interval={interval} indicators={indicators}
+            onAddWatch={addToWatchlist}
+            screenshotImage={screenshotImage} onScreenshotConsumed={() => setScreenshotImage(null)}
+            onTakeScreenshot={() => { setMobileTab("ai"); takeScreenshotRef.current?.(); }}
+            onReorder={(newList) => { setWatchlist(newList); saveWatchlist(newList); }}
+          />
         </div>
       </div>
+
+      <MobileTabBar
+        active={mobileTab}
+        onChange={(tab) => {
+          setMobileTab(tab);
+          if (tab === "ai") setRightTab("ai");
+          if (tab === "watch") setRightTab("watch");
+        }}
+      />
     </div>
   );
 }
