@@ -746,8 +746,7 @@ export default function TradingChart({
                   { color: "#38bdf8", label: "青" },
                   { color: "#ffffff", label: "白" },
                   { color: "#fbbf24", label: "黄" },
-                  { color: "#ef4444", label: "赤" },
-                  { color: "#22c55e", label: "緑" },
+                  { color: "#f97316", label: "橙" },
                 ].map(({ color }) => (
                   <button
                     key={color}
