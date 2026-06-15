@@ -151,10 +151,10 @@ export default function TopBar({
         ))}
       </div>
 
-      <div className="w-px h-5 bg-[#2a2e39] hidden md:block" />
+      <div className="w-px h-5 bg-[#2a2e39]" />
 
       {/* Indicators */}
-      <div className="relative hidden md:block">
+      <div className="relative">
         <button
           onClick={() => setShowIndicators(!showIndicators)}
           className="flex items-center gap-1 px-2 py-1 text-xs text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded"
@@ -165,7 +165,7 @@ export default function TopBar({
           インジケーター
         </button>
         {showIndicators && (
-          <div className="absolute top-full left-0 mt-1 w-52 bg-[#1e222d] border border-[#2a2e39] rounded shadow-xl z-50">
+          <div className="absolute top-full left-0 mt-1 w-52 bg-[#1e222d] border border-[#2a2e39] rounded shadow-xl z-50 max-h-[70vh] overflow-y-auto">
             {IND_GROUPS.map(({ group, items }) => (
               <div key={group}>
                 <div className="px-3 py-1.5 text-[10px] text-[#434651] uppercase tracking-wider border-b border-[#2a2e39]">{group}</div>
