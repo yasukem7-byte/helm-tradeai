@@ -33,6 +33,7 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
   const [dragging, setDragging] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingQuickRef = useRef<string | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,8 +50,17 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
 
   useEffect(() => {
     if (screenshotImage) {
-      setPendingImage({ type: "image", data: screenshotImage, mediaType: "image/png" });
+      const img: ImageContent = { type: "image", data: screenshotImage, mediaType: "image/png" };
+      setPendingImage(img);
       onScreenshotConsumed?.();
+      // クイック質問から呼ばれた場合は自動送信
+      if (pendingQuickRef.current) {
+        const question = pendingQuickRef.current;
+        pendingQuickRef.current = null;
+        setInput(question);
+        // 次のレンダー後に送信（pendingImage と input がセットされてから）
+        setTimeout(() => sendWithContext(question, img), 50);
+      }
     }
   }, [screenshotImage]);
 
@@ -101,8 +111,10 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
     if (file) readImageFile(file);
   };
 
-  const send = async () => {
-    if ((!input.trim() && !pendingImage) || !apiKey || loading) return;
+  const sendWithContext = async (overrideText?: string, overrideImage?: ImageContent) => {
+    const text = overrideText ?? input;
+    const image = overrideImage ?? pendingImage;
+    if ((!text.trim() && !image) || !apiKey || loading) return;
 
     const activeIndicators = Object.entries(indicators)
       .filter(([, v]) => v)
@@ -121,8 +133,8 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
 
     const userMessage: Message = {
       role: "user",
-      content: input || (pendingImage ? "このチャートを分析してください。" : ""),
-      image: pendingImage ?? undefined,
+      content: text || (image ? "このチャートを分析してください。" : ""),
+      image: image ?? undefined,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -170,6 +182,8 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
       setLoading(false);
     }
   };
+
+  const send = () => sendWithContext();
 
   return (
     <div
@@ -251,7 +265,10 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
             {["今の相場どう思う？", "買いサイン？", "リスクは？", "このチャート分析して"].map((s) => (
               <button
                 key={s}
-                onClick={() => setInput(s)}
+                onClick={() => {
+                  pendingQuickRef.current = s;
+                  onTakeScreenshot?.();
+                }}
                 className="text-[10px] bg-[#2a2e39] hover:bg-[#363a45] text-[#787b86] hover:text-[#d1d4dc] rounded px-2 py-1 transition-colors"
               >
                 {s}
