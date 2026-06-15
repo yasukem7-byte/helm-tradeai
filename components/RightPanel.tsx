@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Indicators, WatchItem } from "@/app/page";
 import AiChat from "@/components/AiChat";
 
@@ -50,13 +50,14 @@ type Props = {
   screenshotImage?: string | null;
   onScreenshotConsumed?: () => void;
   onTakeScreenshot?: () => void;
+  onReorder?: (newList: WatchItem[]) => void;
 };
 
 export default function RightPanel({
   tab, onTabChange,
   watchlist, activeSymbol, onSelectSymbol, onRemoveSymbol, onAddWatch,
   apiKey, symbol, interval, indicators,
-  screenshotImage, onScreenshotConsumed, onTakeScreenshot,
+  screenshotImage, onScreenshotConsumed, onTakeScreenshot, onReorder,
 }: Props) {
   const [showAddSearch, setShowAddSearch] = useState(false);
   const [addSearch, setAddSearch] = useState("");
@@ -116,6 +117,7 @@ export default function RightPanel({
               activeSymbol={activeSymbol}
               onSelectSymbol={onSelectSymbol}
               onRemoveSymbol={onRemoveSymbol}
+              onReorder={(newList) => onReorder?.(newList)}
             />
           </div>
 
@@ -203,16 +205,18 @@ export default function RightPanel({
 }
 
 function WatchlistWithGroups({
-  watchlist, activeSymbol, onSelectSymbol, onRemoveSymbol,
+  watchlist, activeSymbol, onSelectSymbol, onRemoveSymbol, onReorder,
 }: {
   watchlist: WatchItem[];
   activeSymbol: string;
   onSelectSymbol: (s: string) => void;
   onRemoveSymbol: (s: string) => void;
+  onReorder: (newList: WatchItem[]) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const dragSymbol = useRef<string | null>(null);
+  const dragGroup = useRef<string | null>(null);
 
-  // Split into ungrouped and groups
   const ungrouped = watchlist.filter((w) => !w.group);
   const groupMap: Record<string, WatchItem[]> = {};
   watchlist.filter((w) => w.group).forEach((w) => {
@@ -224,6 +228,37 @@ function WatchlistWithGroups({
   const toggleGroup = (name: string) =>
     setCollapsed((prev) => ({ ...prev, [name]: !prev[name] }));
 
+  const handleDragStart = (symbol: string, group: string | undefined) => {
+    dragSymbol.current = symbol;
+    dragGroup.current = group ?? null;
+  };
+
+  const handleDrop = (targetSymbol: string, targetGroup: string | undefined) => {
+    if (!dragSymbol.current || dragSymbol.current === targetSymbol) return;
+
+    const newList = [...watchlist];
+    const fromIdx = newList.findIndex((w) => w.symbol === dragSymbol.current);
+    const toIdx = newList.findIndex((w) => w.symbol === targetSymbol);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    // グループをまたぐ場合はgroupを更新
+    newList[fromIdx] = { ...newList[fromIdx], group: targetGroup };
+    const [moved] = newList.splice(fromIdx, 1);
+    const newToIdx = newList.findIndex((w) => w.symbol === targetSymbol);
+    newList.splice(newToIdx, 0, moved);
+    onReorder(newList);
+    dragSymbol.current = null;
+  };
+
+  const handleDropOnGroup = (groupName: string) => {
+    if (!dragSymbol.current) return;
+    const newList = watchlist.map((w) =>
+      w.symbol === dragSymbol.current ? { ...w, group: groupName } : w
+    );
+    onReorder(newList);
+    dragSymbol.current = null;
+  };
+
   return (
     <>
       {ungrouped.map((item) => (
@@ -233,13 +268,16 @@ function WatchlistWithGroups({
           isActive={item.symbol === activeSymbol}
           onClick={() => onSelectSymbol(item.symbol)}
           onRemove={() => onRemoveSymbol(item.symbol)}
+          onDragStart={() => handleDragStart(item.symbol, undefined)}
+          onDrop={() => handleDrop(item.symbol, undefined)}
         />
       ))}
       {Object.entries(groupMap).map(([groupName, items]) => (
         <div key={groupName}>
-          {/* Group header */}
           <button
             onClick={() => toggleGroup(groupName)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); handleDropOnGroup(groupName); }}
             className="w-full flex items-center gap-1 px-3 py-1.5 bg-[#161b27] hover:bg-[#1e2535] border-t border-b border-[#2a2e39] transition-colors"
           >
             <svg
@@ -251,7 +289,6 @@ function WatchlistWithGroups({
             <span className="text-[10px] text-[#787b86] uppercase tracking-wider font-medium">{groupName}</span>
             <span className="text-[10px] text-[#434651] ml-auto">{items.length}</span>
           </button>
-          {/* Group items */}
           {!collapsed[groupName] && items.map((item) => (
             <WatchRow
               key={item.symbol}
@@ -259,6 +296,8 @@ function WatchlistWithGroups({
               isActive={item.symbol === activeSymbol}
               onClick={() => onSelectSymbol(item.symbol)}
               onRemove={() => onRemoveSymbol(item.symbol)}
+              onDragStart={() => handleDragStart(item.symbol, groupName)}
+              onDrop={() => handleDrop(item.symbol, groupName)}
             />
           ))}
         </div>
@@ -272,13 +311,18 @@ function WatchRow({
   isActive,
   onClick,
   onRemove,
+  onDragStart,
+  onDrop,
 }: {
   item: WatchItem;
   isActive: boolean;
   onClick: () => void;
   onRemove: () => void;
+  onDragStart?: () => void;
+  onDrop?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const isUp = (item.changePct ?? 0) >= 0;
   const priceStr = item.price !== undefined
     ? item.price >= 1000 ? item.price.toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -288,17 +332,29 @@ function WatchRow({
 
   return (
     <div
-      className={`flex items-center px-2 py-1.5 cursor-pointer transition-colors group ${
-        isActive ? "bg-[#2a2e39]" : "hover:bg-[#252830]"
-      }`}
+      draggable
+      onDragStart={(e) => { e.stopPropagation(); onDragStart?.(); }}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); onDrop?.(); }}
+      className={`flex items-center px-2 py-1.5 cursor-pointer transition-colors group border-t-2 ${
+        dragOver ? "border-blue-500" : "border-transparent"
+      } ${isActive ? "bg-[#2a2e39]" : "hover:bg-[#252830]"}`}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {/* ドラッグハンドル */}
+      <div className={`w-3 flex-shrink-0 flex flex-col gap-0.5 mr-1 cursor-grab ${hovered ? "opacity-40" : "opacity-0"}`}>
+        <div className="w-2.5 h-px bg-[#787b86]" />
+        <div className="w-2.5 h-px bg-[#787b86]" />
+        <div className="w-2.5 h-px bg-[#787b86]" />
+      </div>
+
       {/* 削除ボタン */}
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        className={`w-5 h-5 flex-shrink-0 flex items-center justify-center rounded text-[10px] transition-all ${
+        className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded text-[10px] transition-all ${
           hovered ? "text-red-400 hover:bg-red-400/20" : "text-transparent"
         }`}
       >✕</button>

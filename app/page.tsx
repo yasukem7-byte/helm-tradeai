@@ -63,6 +63,8 @@ export default function Home() {
     const defaultWl: WatchItem[] = [
       // コモディティ
       { symbol: "XAU/USD", group: "コモディティ" },
+      { symbol: "XAG/USD", group: "コモディティ" },
+      { symbol: "XPT/USD", group: "コモディティ" },
       // 為替
       { symbol: "EUR/USD", group: "為替" },
       { symbol: "USD/JPY", group: "為替" },
@@ -272,6 +274,10 @@ export default function Home() {
           onTakeScreenshot={() => {
             setRightTab("ai");
             takeScreenshotRef.current?.();
+          }}
+          onReorder={(newList) => {
+            setWatchlist(newList);
+            saveWatchlist(newList);
           }}
         />
       </div>
