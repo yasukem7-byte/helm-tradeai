@@ -222,6 +222,7 @@ export default function TradingChart({
   const adxRef = useRef<HTMLDivElement>(null);
   const volumeRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const outerRef = useRef<HTMLDivElement>(null);
   const mainChart = useRef<IChartApi | null>(null);
   const rsiChart = useRef<IChartApi | null>(null);
   const macdChart = useRef<IChartApi | null>(null);
@@ -523,9 +524,9 @@ export default function TradingChart({
   // Canvas: setup on mount (canvas is always in DOM)
   useEffect(() => {
     const canvas = canvasRef.current;
-    const container = mainRef.current;
+    const container = outerRef.current;  // 常時存在するコンテナを使用
     if (!canvas || !container) return;
-    const alreadySetup = false; // always setup fresh
+    const alreadySetup = false;
 
     const redraw = () => {
       const ctx = canvas.getContext("2d");
@@ -750,7 +751,7 @@ export default function TradingChart({
   };
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div ref={outerRef} className="flex flex-col h-full relative">
       {/* Symbol label bar */}
       {!loading && !error && (twelveDataKey || isJapanese(symbol)) && (
         <>
