@@ -235,9 +235,9 @@ export default function Home() {
         onAddWatch={addToWatchlist}
       />
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
         {/* Chart */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <TradingChart
             symbol={symbol}
             interval={interval}
@@ -256,7 +256,8 @@ export default function Home() {
           />
         </div>
 
-        {/* Right Panel */}
+        {/* Right Panel - desktop: right side, mobile: bottom */}
+        <div className="md:contents h-[45vh] md:h-auto flex-shrink-0 border-t border-[#2a2e39] md:border-t-0">
         <RightPanel
           tab={rightTab}
           onTabChange={setRightTab}
@@ -280,6 +281,7 @@ export default function Home() {
             saveWatchlist(newList);
           }}
         />
+        </div>
       </div>
     </div>
   );

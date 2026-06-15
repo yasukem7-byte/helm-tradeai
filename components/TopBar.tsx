@@ -135,12 +135,12 @@ export default function TopBar({
       <div className="w-px h-5 bg-[#2a2e39]" />
 
       {/* Intervals */}
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none max-w-[40vw] md:max-w-none">
         {INTERVALS.map((i) => (
           <button
             key={i.value}
             onClick={() => onIntervalChange(i.value)}
-            className={`px-2 py-1 text-xs rounded transition-colors ${
+            className={`px-2 py-1 text-xs rounded transition-colors flex-shrink-0 ${
               interval === i.value
                 ? "bg-blue-600 text-white"
                 : "text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39]"
@@ -151,10 +151,10 @@ export default function TopBar({
         ))}
       </div>
 
-      <div className="w-px h-5 bg-[#2a2e39]" />
+      <div className="w-px h-5 bg-[#2a2e39] hidden md:block" />
 
       {/* Indicators */}
-      <div className="relative">
+      <div className="relative hidden md:block">
         <button
           onClick={() => setShowIndicators(!showIndicators)}
           className="flex items-center gap-1 px-2 py-1 text-xs text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded"

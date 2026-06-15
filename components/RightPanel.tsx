@@ -69,7 +69,7 @@ export default function RightPanel({
   );
 
   return (
-    <div className="w-64 bg-[#1e222d] border-l border-[#2a2e39] flex flex-col">
+    <div className="w-full md:w-64 bg-[#1e222d] md:border-l border-[#2a2e39] flex flex-col h-full">
       {/* Tabs */}
       <div className="flex border-b border-[#2a2e39]">
         <button
