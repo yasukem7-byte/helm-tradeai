@@ -1,0 +1,280 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
+import ApiKeyModal from "@/components/ApiKeyModal";
+import TopBar from "@/components/TopBar";
+import RightPanel from "@/components/RightPanel";
+
+const TradingChart = dynamic(() => import("@/components/TradingChart"), {
+  ssr: false,
+});
+
+export type Indicators = {
+  ma20: boolean;
+  ma50: boolean;
+  ma200: boolean;
+  rsi: boolean;
+  macd: boolean;
+  bb: boolean;
+  atr: boolean;
+  stoch: boolean;
+  volume: boolean;
+  fib: boolean;
+  adx: boolean;
+  ichimoku: boolean;
+};
+
+export type WatchItem = {
+  symbol: string;
+  price?: number;
+  change?: number;
+  changePct?: number;
+  group?: string;
+};
+
+export default function Home() {
+  const [apiKey, setApiKey] = useState("");
+  const [twelveDataKey, setTwelveDataKey] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [symbol, setSymbol] = useState("XAU/USD");
+  const [interval, setInterval] = useState("1h");
+  const [indicators, setIndicators] = useState<Indicators>({
+    ma20: true, ma50: true, ma200: false,
+    rsi: false, macd: false,
+    bb: false, atr: false, stoch: false,
+    volume: false, fib: false, adx: false, ichimoku: false,
+  });
+  const [range, setRange] = useState("3M");
+  const [watchlist, setWatchlist] = useState<WatchItem[]>([]);
+  const [rightTab, setRightTab] = useState<"watch" | "ai">("watch");
+  const [screenshotImage, setScreenshotImage] = useState<string | null>(null);
+  const takeScreenshotRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const savedApiKey = localStorage.getItem("claude_api_key") || "";
+    const savedTwelveKey = localStorage.getItem("twelve_data_key") || "";
+    setApiKey(savedApiKey);
+    setTwelveDataKey(savedTwelveKey);
+    if (!savedApiKey || !savedTwelveKey) setShowModal(true);
+
+    // ウォッチリストをlocalStorageから復元
+    const savedWl = localStorage.getItem("watchlist");
+    const defaultWl: WatchItem[] = [
+      // コモディティ
+      { symbol: "XAU/USD", group: "コモディティ" },
+      // 為替
+      { symbol: "EUR/USD", group: "為替" },
+      { symbol: "USD/JPY", group: "為替" },
+      // 仮想通貨
+      { symbol: "BTC/USD", group: "仮想通貨" },
+      { symbol: "ETH/USD", group: "仮想通貨" },
+      // 米国株 AI・半導体
+      { symbol: "NVDA",  group: "米国株 AI・半導体" },
+      { symbol: "AMD",   group: "米国株 AI・半導体" },
+      { symbol: "MU",    group: "米国株 AI・半導体" },
+      { symbol: "LRCX",  group: "米国株 AI・半導体" },
+      { symbol: "AVGO",  group: "米国株 AI・半導体" },
+      { symbol: "IBM",   group: "米国株 AI・半導体" },
+      { symbol: "INTC",  group: "米国株 AI・半導体" },
+      // 米国株 テック・プラットフォーム
+      { symbol: "MSFT",  group: "米国株 テック・プラットフォーム" },
+      { symbol: "GOOG",  group: "米国株 テック・プラットフォーム" },
+      { symbol: "META",  group: "米国株 テック・プラットフォーム" },
+      { symbol: "AMZN",  group: "米国株 テック・プラットフォーム" },
+      { symbol: "PLTR",  group: "米国株 テック・プラットフォーム" },
+      // 米国株 防衛・インフラ・宇宙
+      { symbol: "KTOS",  group: "米国株 防衛・インフラ・宇宙" },
+      { symbol: "STRL",  group: "米国株 防衛・インフラ・宇宙" },
+      { symbol: "TTAN",  group: "米国株 防衛・インフラ・宇宙" },
+      { symbol: "SPCX",  group: "米国株 防衛・インフラ・宇宙" },
+      // 米国株 その他
+      { symbol: "TSLA",  group: "米国株 その他" },
+      { symbol: "ONDS",  group: "米国株 その他" },
+      { symbol: "ONON",  group: "米国株 その他" },
+      { symbol: "V",     group: "米国株 その他" },
+      { symbol: "JEPQ",  group: "米国株 その他" },
+      { symbol: "BRKB",  group: "米国株 その他" },
+      { symbol: "ABBV",  group: "米国株 その他" },
+      { symbol: "GLDM",  group: "米国株 その他" },
+      // 日本株 AI関連
+      { symbol: "285A",  group: "日本株 AI関連" },
+      { symbol: "5803",  group: "日本株 AI関連" },
+      { symbol: "6976",  group: "日本株 AI関連" },
+      { symbol: "5805",  group: "日本株 AI関連" },
+      { symbol: "6701",  group: "日本株 AI関連" },
+      // 日本株 防衛・宇宙
+      { symbol: "7011",  group: "日本株 防衛・宇宙" },
+      { symbol: "7013",  group: "日本株 防衛・宇宙" },
+      { symbol: "186A",  group: "日本株 防衛・宇宙" },
+      { symbol: "485A",  group: "日本株 防衛・宇宙" },
+      // 日本株 商社・金融
+      { symbol: "8306",  group: "日本株 商社・金融" },
+      { symbol: "8001",  group: "日本株 商社・金融" },
+      { symbol: "8058",  group: "日本株 商社・金融" },
+      { symbol: "9432",  group: "日本株 商社・金融" },
+      { symbol: "8593",  group: "日本株 商社・金融" },
+      // 日本株 金・資源
+      { symbol: "2036",  group: "日本株 金・資源" },
+      { symbol: "1540",  group: "日本株 金・資源" },
+      { symbol: "425A",  group: "日本株 金・資源" },
+      { symbol: "424A",  group: "日本株 金・資源" },
+      // 日本株 素材・電線
+      { symbol: "5801",  group: "日本株 素材・電線" },
+      { symbol: "4004",  group: "日本株 素材・電線" },
+      // 日本株 その他
+      { symbol: "7974",  group: "日本株 その他" },
+    ];
+    setWatchlist(savedWl ? JSON.parse(savedWl) : defaultWl);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("symbol")) setSymbol(params.get("symbol")!);
+    if (params.get("interval")) setInterval(params.get("interval")!);
+    const ind = params.get("indicators");
+    if (ind) {
+      const active = ind.split(",");
+      setIndicators({
+        ma20: active.includes("ma20"), ma50: active.includes("ma50"), ma200: active.includes("ma200"),
+        rsi: active.includes("rsi"), macd: active.includes("macd"),
+        bb: active.includes("bb"), atr: active.includes("atr"), stoch: active.includes("stoch"),
+        volume: active.includes("volume"), fib: active.includes("fib"), adx: active.includes("adx"),
+        ichimoku: active.includes("ichimoku"),
+      });
+    }
+  }, []);
+
+  const syncUrl = (
+    sym: string,
+    intv: string,
+    ind: Indicators,
+    wl: WatchItem[]
+  ) => {
+    const active = Object.entries(ind)
+      .filter(([, v]) => v)
+      .map(([k]) => k)
+      .join(",");
+    const params = new URLSearchParams();
+    params.set("symbol", sym);
+    params.set("interval", intv);
+    if (active) params.set("indicators", active);
+    params.set("watchlist", wl.map((w) => w.symbol).join(","));
+    window.history.replaceState({}, "", `?${params.toString()}`);
+  };
+
+  const handleSymbolChange = (s: string) => {
+    setSymbol(s);
+    syncUrl(s, interval, indicators, watchlist);
+  };
+
+  const handleIntervalChange = (i: string) => {
+    setInterval(i);
+    syncUrl(symbol, i, indicators, watchlist);
+  };
+
+  const toggleIndicator = (key: keyof Indicators) => {
+    const next = { ...indicators, [key]: !indicators[key] };
+    setIndicators(next);
+    syncUrl(symbol, interval, next, watchlist);
+  };
+
+  const saveWatchlist = (wl: WatchItem[]) => {
+    localStorage.setItem("watchlist", JSON.stringify(wl.map((w) => ({ symbol: w.symbol, group: w.group }))));
+  };
+
+  const addToWatchlist = (sym: string) => {
+    if (watchlist.find((w) => w.symbol === sym)) return;
+    const next = [...watchlist, { symbol: sym }];
+    setWatchlist(next);
+    saveWatchlist(next);
+    syncUrl(symbol, interval, indicators, next);
+  };
+
+  const removeFromWatchlist = (sym: string) => {
+    const next = watchlist.filter((w) => w.symbol !== sym);
+    setWatchlist(next);
+    saveWatchlist(next);
+    syncUrl(symbol, interval, indicators, next);
+  };
+
+  const updateWatchPrice = (sym: string, price: number, change: number, changePct: number) => {
+    setWatchlist((prev) =>
+      prev.map((w) => (w.symbol === sym ? { ...w, price, change, changePct } : w))
+    );
+  };
+
+  const handleSaveKeys = (claude: string, twelve: string) => {
+    localStorage.setItem("claude_api_key", claude);
+    localStorage.setItem("twelve_data_key", twelve);
+    setApiKey(claude);
+    setTwelveDataKey(twelve);
+    setShowModal(false);
+  };
+
+  const shareUrl = () => {
+    navigator.clipboard.writeText(window.location.href);
+    alert("URLをコピーしました！");
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-[#131722] text-white select-none">
+      {showModal && (
+        <ApiKeyModal onSave={handleSaveKeys} onClose={() => setShowModal(false)} />
+      )}
+
+      <TopBar
+        symbol={symbol}
+        interval={interval}
+        indicators={indicators}
+        onSymbolChange={handleSymbolChange}
+        onIntervalChange={handleIntervalChange}
+        onToggleIndicator={toggleIndicator}
+        onShare={shareUrl}
+        onOpenSettings={() => setShowModal(true)}
+        onAddWatch={addToWatchlist}
+      />
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Chart */}
+        <div className="flex-1 min-w-0 flex flex-col">
+          <TradingChart
+            symbol={symbol}
+            interval={interval}
+            range={range}
+            onRangeChange={setRange}
+            indicators={indicators}
+            twelveDataKey={twelveDataKey}
+            onPriceUpdate={(price, change, changePct) =>
+              updateWatchPrice(symbol, price, change, changePct)
+            }
+            onScreenshot={(base64) => {
+              setScreenshotImage(base64);
+              setRightTab("ai");
+            }}
+            onReadyToScreenshot={(fn) => { takeScreenshotRef.current = fn; }}
+          />
+        </div>
+
+        {/* Right Panel */}
+        <RightPanel
+          tab={rightTab}
+          onTabChange={setRightTab}
+          watchlist={watchlist}
+          activeSymbol={symbol}
+          onSelectSymbol={handleSymbolChange}
+          onRemoveSymbol={removeFromWatchlist}
+          apiKey={apiKey}
+          symbol={symbol}
+          interval={interval}
+          indicators={indicators}
+          onAddWatch={addToWatchlist}
+          screenshotImage={screenshotImage}
+          onScreenshotConsumed={() => setScreenshotImage(null)}
+          onTakeScreenshot={() => {
+            setRightTab("ai");
+            takeScreenshotRef.current?.();
+          }}
+        />
+      </div>
+    </div>
+  );
+}
