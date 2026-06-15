@@ -216,7 +216,7 @@ function WatchlistWithGroups({
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const groupNames = [...new Set(watchlist.filter(w => w.group).map(w => w.group!))];
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(
-    () => isMobile ? Object.fromEntries(groupNames.map(g => [g, true])) : {}
+    () => Object.fromEntries(groupNames.map(g => [g, true]))
   );
   const dragSymbol = useRef<string | null>(null);
   const dragGroup = useRef<string | null>(null);
