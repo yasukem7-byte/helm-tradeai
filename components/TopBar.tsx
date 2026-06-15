@@ -159,10 +159,12 @@ export default function TopBar({
           onClick={() => setShowIndicators(!showIndicators)}
           className="flex items-center gap-1 px-2 py-1 text-xs text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+          <svg className="w-4 h-4 text-blue-400 md:text-[#787b86] md:w-3.5 md:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <circle cx="12" cy="12" r="10" strokeWidth={2} />
+            <line x1="12" y1="8" x2="12" y2="8" strokeWidth={3} strokeLinecap="round" />
+            <line x1="12" y1="12" x2="12" y2="16" strokeWidth={2} strokeLinecap="round" />
           </svg>
-          インジケーター
+          <span className="hidden md:inline">インジケーター</span>
         </button>
         {showIndicators && (
           <div className="absolute top-full left-0 mt-1 w-52 bg-[#1e222d] border border-[#2a2e39] rounded shadow-xl z-50 max-h-[70vh] overflow-y-auto">
