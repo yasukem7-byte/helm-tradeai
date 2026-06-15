@@ -738,7 +738,12 @@ export default function TradingChart({
                 drawMode ? "bg-orange-500 text-white" : "text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39]"
               }`}
             >
-              ✏️ {drawMode ? (firstPoint ? "2点目をクリック" : "1点目をクリック") : "線を引く"}
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="19" x2="19" y2="5" />
+                <circle cx="5" cy="19" r="2" fill="currentColor" stroke="none" />
+                <circle cx="19" cy="5" r="2" fill="currentColor" stroke="none" />
+              </svg>
+              {drawMode ? (firstPoint ? "2点目をクリック" : "1点目をクリック") : "線を引く"}
             </button>
             {drawMode && (
               <>
