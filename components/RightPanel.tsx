@@ -213,7 +213,11 @@ function WatchlistWithGroups({
   onRemoveSymbol: (s: string) => void;
   onReorder: (newList: WatchItem[]) => void;
 }) {
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const groupNames = [...new Set(watchlist.filter(w => w.group).map(w => w.group!))];
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(
+    () => isMobile ? Object.fromEntries(groupNames.map(g => [g, true])) : {}
+  );
   const dragSymbol = useRef<string | null>(null);
   const dragGroup = useRef<string | null>(null);
 
@@ -278,7 +282,7 @@ function WatchlistWithGroups({
             onClick={() => toggleGroup(groupName)}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); handleDropOnGroup(groupName); }}
-            className="w-full flex items-center gap-1 px-3 py-1.5 bg-[#161b27] hover:bg-[#1e2535] border-t border-b border-[#2a2e39] transition-colors"
+            className="w-full flex items-center gap-1 px-3 py-2.5 md:py-1.5 bg-[#161b27] hover:bg-[#1e2535] border-t border-b border-[#2a2e39] transition-colors"
           >
             <svg
               className={`w-3 h-3 text-[#787b86] transition-transform flex-shrink-0 ${collapsed[groupName] ? "-rotate-90" : ""}`}
@@ -337,7 +341,7 @@ function WatchRow({
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); onDrop?.(); }}
-      className={`flex items-center px-2 py-1.5 cursor-pointer transition-colors group border-t-2 ${
+      className={`flex items-center px-2 py-2.5 md:py-1.5 cursor-pointer transition-colors group border-t-2 ${
         dragOver ? "border-blue-500" : "border-transparent"
       } ${isActive ? "bg-[#2a2e39]" : "hover:bg-[#252830]"}`}
       onClick={onClick}
