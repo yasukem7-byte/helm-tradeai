@@ -521,12 +521,12 @@ export default function TradingChart({
     };
   }, [candles, indicators]);
 
-  // Canvas: setup on mount (canvas is always in DOM)
+  // Canvas: setup when chart area mounts
   useEffect(() => {
     const canvas = canvasRef.current;
-    const container = outerRef.current;  // 常時存在するコンテナを使用
+    const container = mainRef.current;
     if (!canvas || !container) return;
-    const alreadySetup = false;
+    const alreadySetup = canvas.dataset.setup === "1";
 
     const redraw = () => {
       const ctx = canvas.getContext("2d");
@@ -579,6 +579,7 @@ export default function TradingChart({
     redrawRef.current = redraw;
 
     if (!alreadySetup) {
+      canvas.dataset.setup = "1";
       const resize = () => {
         canvas.width = container.clientWidth;
         canvas.height = container.clientHeight;
@@ -586,10 +587,12 @@ export default function TradingChart({
       };
       resize();
       window.addEventListener("resize", resize);
-      return () => window.removeEventListener("resize", resize);
+      return () => { window.removeEventListener("resize", resize); };
+    } else {
+      redraw();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [candles]);
 
   const getPos = (e: React.MouseEvent<HTMLCanvasElement>): DrawPoint => {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -825,9 +828,22 @@ export default function TradingChart({
             )}
           </div>
 
-          {/* Chart area */}
+          {/* Chart area + canvas overlay */}
           <div className={`${mainFlex} min-h-0 relative`}>
             <div ref={mainRef} className="w-full h-full" />
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 w-full h-full"
+              style={{ pointerEvents: (drawMode || linesRef.current.length > 0) ? "auto" : "none" }}
+              onMouseDown={handleCanvasMouseDown}
+              onMouseMove={handleCanvasMouseMove}
+              onMouseUp={handleCanvasMouseUp}
+              onMouseLeave={handleCanvasMouseUp}
+              onClick={handleCanvasClick}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            />
           </div>
           {/* Range selector bar — TradingView style */}
           <div className="flex items-center gap-0.5 px-3 py-1 border-t border-[#1e222d]">
@@ -885,20 +901,6 @@ export default function TradingChart({
         </>
       )}
 
-      {/* Canvas overlay — 常にDOMに存在、チャートエリアに重ねる */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ pointerEvents: (drawMode || linesRef.current.length > 0) ? "auto" : "none" }}
-        onMouseDown={handleCanvasMouseDown}
-        onMouseMove={handleCanvasMouseMove}
-        onMouseUp={handleCanvasMouseUp}
-        onMouseLeave={handleCanvasMouseUp}
-        onClick={handleCanvasClick}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      />
     </div>
   );
 }
