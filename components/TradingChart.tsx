@@ -578,87 +578,148 @@ export default function TradingChart({
 
     redrawRef.current = redraw;
 
-    if (!alreadySetup) {
-      canvas.dataset.setup = "1";
-      const resize = () => {
-        canvas.width = container.clientWidth;
-        canvas.height = container.clientHeight;
+    // サイズ設定
+    const resize = () => {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      redrawRef.current?.();
+    };
+    resize();
+
+    // ── ネイティブイベントリスナー ──
+    const getPos = (clientX: number, clientY: number): DrawPoint => {
+      const r = canvas.getBoundingClientRect();
+      return { x: clientX - r.left, y: clientY - r.top };
+    };
+
+    const findNear = (pos: DrawPoint, threshold = 10) => {
+      for (let i = linesRef.current.length - 1; i >= 0; i--) {
+        const line = linesRef.current[i];
+        for (const pt of ["p1", "p2"] as const) {
+          const p = line[pt];
+          if (Math.sqrt((p.x - pos.x) ** 2 + (p.y - pos.y) ** 2) <= threshold)
+            return { lineIdx: i, point: pt };
+        }
+      }
+      return null;
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      const pos = getPos(e.clientX, e.clientY);
+      const hit = findNear(pos);
+      if (hit) { draggingRef.current = hit; didDragRef.current = false; }
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      const pos = getPos(e.clientX, e.clientY);
+      if (draggingRef.current) {
+        didDragRef.current = true;
+        const { lineIdx, point } = draggingRef.current;
+        linesRef.current = linesRef.current.map((l, i) => i === lineIdx ? { ...l, [point]: pos } : l);
         redrawRef.current?.();
-      };
-      resize();
-      window.addEventListener("resize", resize);
-      return () => { window.removeEventListener("resize", resize); };
-    } else {
-      redraw();
-    }
+        return;
+      }
+      canvas.style.cursor = findNear(pos) ? "move" : drawModeRef.current ? "crosshair" : "default";
+      if (drawModeRef.current && firstPointRef.current) {
+        mousePosRef.current = pos;
+        redrawRef.current?.();
+      }
+    };
+
+    const onMouseUp = () => { draggingRef.current = null; };
+
+    const onClick = (e: MouseEvent) => {
+      if (didDragRef.current) { didDragRef.current = false; return; }
+      if (!drawModeRef.current) return;
+      const p = getPos(e.clientX, e.clientY);
+      if (!firstPointRef.current) {
+        firstPointRef.current = p;
+        redrawRef.current?.();
+        forceUpdate(n => n + 1);
+      } else {
+        linesRef.current = [...linesRef.current, { p1: firstPointRef.current, p2: p, color: drawColorRef.current }];
+        firstPointRef.current = null;
+        mousePosRef.current = null;
+        redrawRef.current?.();
+        forceUpdate(n => n + 1);
+      }
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      const pos = getPos(t.clientX, t.clientY);
+      const hit = findNear(pos, 20);
+      if (hit) { e.preventDefault(); draggingRef.current = hit; didDragRef.current = false; }
+      else if (drawModeRef.current) e.preventDefault();
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!draggingRef.current && !(drawModeRef.current && firstPointRef.current)) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      const pos = getPos(t.clientX, t.clientY);
+      if (draggingRef.current) {
+        didDragRef.current = true;
+        const { lineIdx, point } = draggingRef.current;
+        linesRef.current = linesRef.current.map((l, i) => i === lineIdx ? { ...l, [point]: pos } : l);
+        redrawRef.current?.();
+      } else if (drawModeRef.current && firstPointRef.current) {
+        mousePosRef.current = pos;
+        redrawRef.current?.();
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (draggingRef.current) { draggingRef.current = null; return; }
+      if (!drawModeRef.current) return;
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      const pos = getPos(t.clientX, t.clientY);
+      if (!firstPointRef.current) {
+        firstPointRef.current = pos;
+        redrawRef.current?.();
+        forceUpdate(n => n + 1);
+      } else {
+        linesRef.current = [...linesRef.current, { p1: firstPointRef.current, p2: pos, color: drawColorRef.current }];
+        firstPointRef.current = null;
+        mousePosRef.current = null;
+        redrawRef.current?.();
+        forceUpdate(n => n + 1);
+      }
+    };
+
+    canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("mouseup", onMouseUp);
+    canvas.addEventListener("mouseleave", onMouseUp);
+    canvas.addEventListener("click", onClick);
+    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+    canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+    window.addEventListener("resize", resize);
+
+    return () => {
+      canvas.removeEventListener("mousedown", onMouseDown);
+      canvas.removeEventListener("mousemove", onMouseMove);
+      canvas.removeEventListener("mouseup", onMouseUp);
+      canvas.removeEventListener("mouseleave", onMouseUp);
+      canvas.removeEventListener("click", onClick);
+      canvas.removeEventListener("touchstart", onTouchStart);
+      canvas.removeEventListener("touchmove", onTouchMove);
+      canvas.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("resize", resize);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candles]);
 
-  const getPos = (e: React.MouseEvent<HTMLCanvasElement>): DrawPoint => {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  };
-
-  const findNearPoint = (pos: DrawPoint, threshold = 10) => {
-    for (let i = linesRef.current.length - 1; i >= 0; i--) {
-      const line = linesRef.current[i];
-      for (const pt of ["p1", "p2"] as const) {
-        const p = line[pt];
-        if (Math.sqrt((p.x - pos.x) ** 2 + (p.y - pos.y) ** 2) <= threshold)
-          return { lineIdx: i, point: pt };
-      }
-    }
-    return null;
-  };
-
-  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const pos = getPos(e);
-    const hit = findNearPoint(pos);
-    if (hit) { draggingRef.current = hit; didDragRef.current = false; }
-  };
-
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const pos = getPos(e);
-    if (draggingRef.current) {
-      didDragRef.current = true;
-      const { lineIdx, point } = draggingRef.current;
-      linesRef.current = linesRef.current.map((l, i) =>
-        i === lineIdx ? { ...l, [point]: pos } : l
-      );
-      redrawRef.current?.();
-      forceUpdate(n => n + 1);
-      return;
-    }
-    const hit = findNearPoint(pos);
+  const updatePointerEvents = () => {
     if (canvasRef.current)
-      canvasRef.current.style.cursor = hit ? "move" : drawModeRef.current ? "crosshair" : "default";
-    if (drawModeRef.current && firstPointRef.current) {
-      mousePosRef.current = pos;
-      redrawRef.current?.();
-    }
+      canvasRef.current.style.pointerEvents = (drawModeRef.current || linesRef.current.length > 0) ? "auto" : "none";
   };
-
-  const handleCanvasMouseUp = () => { draggingRef.current = null; };
-
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (didDragRef.current) { didDragRef.current = false; return; }
-    if (!drawModeRef.current) return;
-    const p = getPos(e);
-    if (!firstPointRef.current) {
-      firstPointRef.current = p;
-      redrawRef.current?.();
-    } else {
-      linesRef.current = [...linesRef.current, { p1: firstPointRef.current, p2: p, color: drawColorRef.current }];
-      firstPointRef.current = null;
-      mousePosRef.current = null;
-      redrawRef.current?.();
-      forceUpdate(n => n + 1);
-    }
-  };
-
   const undoLine = () => {
     linesRef.current = linesRef.current.slice(0, -1);
     redrawRef.current?.();
+    updatePointerEvents();
     forceUpdate(n => n + 1);
   };
   const clearLines = () => {
@@ -666,53 +727,8 @@ export default function TradingChart({
     firstPointRef.current = null;
     mousePosRef.current = null;
     redrawRef.current?.();
+    updatePointerEvents();
     forceUpdate(n => n + 1);
-  };
-
-  // Touch event handlers (mobile)
-  const getPosFromTouch = (e: React.TouchEvent<HTMLCanvasElement>): DrawPoint => {
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const t = e.touches[0] ?? e.changedTouches[0];
-    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
-  };
-
-  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    const pos = getPosFromTouch(e);
-    const hit = findNearPoint(pos, 20);
-    if (hit) { e.preventDefault(); draggingRef.current = hit; didDragRef.current = false; }
-    else if (drawModeRef.current) { e.preventDefault(); }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!draggingRef.current && !(drawModeRef.current && firstPointRef.current)) return;
-    e.preventDefault();
-    const pos = getPosFromTouch(e);
-    if (draggingRef.current) {
-      didDragRef.current = true;
-      const { lineIdx, point } = draggingRef.current;
-      linesRef.current = linesRef.current.map((l, i) => i === lineIdx ? { ...l, [point]: pos } : l);
-      redrawRef.current?.();
-    } else if (drawModeRef.current && firstPointRef.current) {
-      mousePosRef.current = pos;
-      redrawRef.current?.();
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (draggingRef.current) { draggingRef.current = null; return; }
-    if (!drawModeRef.current) return;
-    e.preventDefault();
-    const pos = getPosFromTouch(e);
-    if (!firstPointRef.current) {
-      firstPointRef.current = pos;
-      redrawRef.current?.();
-    } else {
-      linesRef.current = [...linesRef.current, { p1: firstPointRef.current, p2: pos, color: drawColorRef.current }];
-      firstPointRef.current = null;
-      mousePosRef.current = null;
-      redrawRef.current?.();
-      forceUpdate(n => n + 1);
-    }
   };
 
   const rsiHeight = indicators.rsi ? "h-32" : "h-0";
@@ -786,6 +802,7 @@ export default function TradingChart({
                 const next = !drawMode;
                 drawModeRef.current = next;
                 setDrawMode(next);
+                if (canvasRef.current) canvasRef.current.style.pointerEvents = (next || linesRef.current.length > 0) ? "auto" : "none";
                 if (!next) { firstPointRef.current = null; mousePosRef.current = null; redrawRef.current?.(); }
               }}
               className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors ${
@@ -834,15 +851,7 @@ export default function TradingChart({
             <canvas
               ref={canvasRef}
               className="absolute inset-0 w-full h-full"
-              style={{ pointerEvents: (drawMode || linesRef.current.length > 0) ? "auto" : "none" }}
-              onMouseDown={handleCanvasMouseDown}
-              onMouseMove={handleCanvasMouseMove}
-              onMouseUp={handleCanvasMouseUp}
-              onMouseLeave={handleCanvasMouseUp}
-              onClick={handleCanvasClick}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+              style={{ pointerEvents: "none" }}
             />
           </div>
           {/* Range selector bar — TradingView style */}
