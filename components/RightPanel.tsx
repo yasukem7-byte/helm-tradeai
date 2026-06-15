@@ -4,7 +4,29 @@ import { useState, useRef } from "react";
 import { Indicators, WatchItem } from "@/app/page";
 import AiChat from "@/components/AiChat";
 
-const JP_NAMES: Record<string, string> = {
+const SYMBOL_NAMES: Record<string, string> = {
+  // コモディティ
+  "XAU/USD": "Gold", "XAG/USD": "Silver", "XPT/USD": "Platinum",
+  // 為替
+  "EUR/USD": "Euro / Dollar", "USD/JPY": "Dollar / Yen",
+  "GBP/USD": "Pound / Dollar", "AUD/USD": "Aussie / Dollar",
+  // 仮想通貨
+  "BTC/USD": "Bitcoin", "ETH/USD": "Ethereum",
+  // 米国株 AI・半導体
+  "NVDA": "NVIDIA", "AMD": "Advanced Micro Devices", "MU": "Micron Technology",
+  "LRCX": "Lam Research", "AVGO": "Broadcom", "IBM": "IBM", "INTC": "Intel",
+  // 米国株 テック・プラットフォーム
+  "MSFT": "Microsoft", "GOOG": "Alphabet (Google)", "META": "Meta Platforms",
+  "AMZN": "Amazon", "PLTR": "Palantir", "AAPL": "Apple",
+  // 米国株 防衛・インフラ・宇宙
+  "KTOS": "Kratos Defense", "STRL": "Sterling Infrastructure",
+  "TTAN": "Titan Machinery", "SPCX": "SpaceX",
+  // 米国株 その他
+  "TSLA": "Tesla", "ONDS": "Ondas Holdings", "ONON": "On Running",
+  "V": "Visa", "JEPQ": "JPMorgan Nasdaq ETF", "BRKB": "Berkshire Hathaway",
+  "ABBV": "AbbVie", "GLDM": "SPDR Gold MiniShares",
+  "SPY": "S&P 500 ETF", "QQQ": "Nasdaq 100 ETF",
+  // 日本株
   "7203": "トヨタ", "6758": "ソニー", "9984": "ソフトバンクG",
   "6861": "キーエンス", "7974": "任天堂", "8306": "三菱UFJ",
   "9432": "NTT", "6902": "デンソー", "4063": "信越化学", "8035": "東京エレクトロン",
@@ -15,6 +37,7 @@ const JP_NAMES: Record<string, string> = {
   "5805": "SWCC", "7013": "IHI", "8058": "三菱商事",
   "186A": "アストロスケール", "2036": "NN金ダブルブルETN", "1540": "純金上場信託",
 };
+const JP_NAMES = SYMBOL_NAMES; // 後方互換
 
 const ALL_SYMBOLS = [
   // コモディティ・FX
