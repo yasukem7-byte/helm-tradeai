@@ -562,19 +562,28 @@ export default function TradingChart({
       // Draw in-progress line preview
       const fp = firstPointRef.current;
       const dc = drawColorRef.current;
-      if (fp && preview) {
-        ctx.beginPath();
-        ctx.strokeStyle = dc;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 3]);
-        ctx.moveTo(fp.x, fp.y);
-        ctx.lineTo(preview.x, preview.y);
-        ctx.stroke();
-        ctx.setLineDash([]);
+      if (fp) {
+        // 1点目は常に表示
         ctx.beginPath();
         ctx.fillStyle = dc;
         ctx.arc(fp.x, fp.y, 6, 0, Math.PI * 2);
         ctx.fill();
+        ctx.beginPath();
+        ctx.strokeStyle = "#131722";
+        ctx.lineWidth = 1.5;
+        ctx.arc(fp.x, fp.y, 6, 0, Math.PI * 2);
+        ctx.stroke();
+        // マウスが動いたらプレビュー線を表示
+        if (preview) {
+          ctx.beginPath();
+          ctx.strokeStyle = dc;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 3]);
+          ctx.moveTo(fp.x, fp.y);
+          ctx.lineTo(preview.x, preview.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
       }
     };
 
