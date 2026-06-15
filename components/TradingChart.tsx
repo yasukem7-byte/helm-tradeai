@@ -653,6 +653,55 @@ export default function TradingChart({
   const undoLine = () => setLines((prev) => prev.slice(0, -1));
   const clearLines = () => { setLines([]); setFirstPoint(null); };
 
+  // Touch event handlers (mobile)
+  const getPosFromTouch = (e: React.TouchEvent<HTMLCanvasElement>): DrawPoint => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const t = e.touches[0] ?? e.changedTouches[0];
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const pos = getPosFromTouch(e);
+    const hit = findNearPoint(pos, 20); // larger threshold for touch
+    if (hit) {
+      e.preventDefault();
+      draggingRef.current = hit;
+      didDragRef.current = false;
+    } else if (drawMode) {
+      e.preventDefault();
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!draggingRef.current && !(drawMode && firstPoint)) return;
+    e.preventDefault();
+    const pos = getPosFromTouch(e);
+    if (draggingRef.current) {
+      didDragRef.current = true;
+      const { lineIdx, point } = draggingRef.current;
+      setLines(prev => prev.map((l, i) => i === lineIdx ? { ...l, [point]: pos } : l));
+    } else if (drawMode && firstPoint) {
+      setMousePos(pos);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (draggingRef.current) {
+      draggingRef.current = null;
+      return;
+    }
+    if (!drawMode) return;
+    e.preventDefault();
+    const pos = getPosFromTouch(e);
+    if (!firstPoint) {
+      setFirstPoint(pos);
+    } else {
+      setLines(prev => [...prev, { p1: firstPoint, p2: pos, color: drawColor }]);
+      setFirstPoint(null);
+      setMousePos(null);
+    }
+  };
+
   const rsiHeight = indicators.rsi ? "h-32" : "h-0";
   const macdHeight = indicators.macd ? "h-32" : "h-0";
   const mainFlex = "flex-1";
@@ -786,6 +835,9 @@ export default function TradingChart({
               onMouseUp={handleCanvasMouseUp}
               onMouseLeave={handleCanvasMouseUp}
               onClick={handleCanvasClick}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             />
           </div>
           {/* Range selector bar — TradingView style */}
