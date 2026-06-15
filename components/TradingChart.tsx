@@ -244,12 +244,15 @@ export default function TradingChart({
 
   // 日本株判定: 4桁数字 → Yahoo Finance経由
   const isJapanese = (sym: string) => /^\d{4}$/.test(sym.trim()) || /^\d{3}[A-Z]$/.test(sym.trim());
+  // Twelve Data非対応コモディティ → Yahoo Finance先物へマッピング
+  const yahooFuturesMap: Record<string, string> = { "XAG/USD": "SI=F", "XPT/USD": "PL=F" };
   const toYahooSymbol = (sym: string) =>
-    isJapanese(sym) ? `${sym.trim()}.T` : sym;
+    isJapanese(sym) ? `${sym.trim()}.T` : (yahooFuturesMap[sym] ?? sym);
+  const useYahoo = (sym: string) => isJapanese(sym) || sym in yahooFuturesMap;
 
   // Fetch data
   useEffect(() => {
-    if (!twelveDataKey && !isJapanese(symbol)) return;
+    if (!twelveDataKey && !useYahoo(symbol)) return;
     setLoading(true);
     setError("");
     setCandles([]);
@@ -258,8 +261,8 @@ export default function TradingChart({
       try {
         let values: Candle[] = [];
 
-        if (isJapanese(symbol)) {
-          // Yahoo Finance経由（日本株）
+        if (useYahoo(symbol)) {
+          // Yahoo Finance経由（日本株・一部コモディティ）
           const yahooSym = toYahooSymbol(symbol);
           // MA200が有効なら1年以上のデータを取得
           const yahooRange = indicators.ma200 && ["1D","1W","1M","3M","6M"].includes(range) ? "2Y" : range;

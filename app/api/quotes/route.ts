@@ -12,10 +12,13 @@ export async function GET(req: NextRequest) {
   const symList = symbols.split(",");
   const result: Record<string, { price: number; change: number; changePct: number }> = {};
 
-  // Separate Japanese stocks (4-digit) from others
+  // Yahoo Financeで取得するシンボルの判定
+  const yahooFuturesMap: Record<string, string> = { "XAG/USD": "SI=F", "XPT/USD": "PL=F" };
   const isJP = (s: string) => /^\d{4}$/.test(s.trim()) || /^\d{3}[A-Z]$/.test(s.trim());
+  const useYahoo = (s: string) => isJP(s) || s in yahooFuturesMap;
   const jpSyms = symList.filter((s) => isJP(s));
-  const otherSyms = symList.filter((s) => !isJP(s));
+  const yahooFuturesSyms = symList.filter((s) => s in yahooFuturesMap);
+  const otherSyms = symList.filter((s) => !useYahoo(s));
 
   // Twelve Data batch quote for non-Japanese
   if (otherSyms.length > 0) {
@@ -39,6 +42,26 @@ export async function GET(req: NextRequest) {
     } catch {
       // continue
     }
+  }
+
+  // Yahoo Finance for commodities (XAG/USD → SI=F, XPT/USD → PL=F)
+  for (const sym of yahooFuturesSyms) {
+    try {
+      const yahooSym = yahooFuturesMap[sym];
+      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${yahooSym}?interval=1d&range=2d`;
+      const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 30 } });
+      const data = await res.json();
+      const r = data?.chart?.result?.[0];
+      if (r) {
+        const closes = r.indicators?.quote?.[0]?.close || [];
+        const last = closes[closes.length - 1];
+        const prev = closes[closes.length - 2];
+        if (last != null && prev != null) {
+          const change = last - prev;
+          result[sym] = { price: last, change, changePct: (change / prev) * 100 };
+        }
+      }
+    } catch { /* continue */ }
   }
 
   // Yahoo Finance for Japanese stocks
