@@ -52,6 +52,7 @@ export default function Home() {
   const [mobileTab, setMobileTab] = useState<"chart" | "watch" | "ai">("chart");
   const [screenshotImage, setScreenshotImage] = useState<string | null>(null);
   const takeScreenshotRef = useRef<(() => void) | null>(null);
+  const takeScreenshotMobileRef = useRef<(() => void) | null>(null);
   const touchStartX = useRef(0);
 
   useEffect(() => {
@@ -289,7 +290,7 @@ export default function Home() {
             twelveDataKey={twelveDataKey}
             onPriceUpdate={(price, change, changePct) => updateWatchPrice(symbol, price, change, changePct)}
             onScreenshot={(base64) => { setScreenshotImage(base64); setMobileTab("ai"); }}
-            onReadyToScreenshot={(fn) => { takeScreenshotRef.current = fn; }}
+            onReadyToScreenshot={(fn) => { takeScreenshotMobileRef.current = fn; }}
           />
         </div>
 
@@ -303,7 +304,7 @@ export default function Home() {
             apiKey={apiKey} symbol={symbol} interval={interval} indicators={indicators}
             onAddWatch={addToWatchlist}
             screenshotImage={screenshotImage} onScreenshotConsumed={() => setScreenshotImage(null)}
-            onTakeScreenshot={() => { setMobileTab("ai"); takeScreenshotRef.current?.(); }}
+            onTakeScreenshot={() => { setMobileTab("ai"); takeScreenshotMobileRef.current?.(); }}
             onReorder={(newList) => { setWatchlist(newList); saveWatchlist(newList); }}
           />
         </div>

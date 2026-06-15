@@ -741,32 +741,40 @@ export default function TradingChart({
 
   const handleScreenshot = () => {
     if (!onScreenshot) return;
-    // Collect screenshots from all active charts using lightweight-charts built-in method
-    const charts = [mainChart, rsiChart, macdChart, stochChart, atrChart, adxChart, volumeChart]
-      .map(r => r.current)
-      .filter(Boolean) as IChartApi[];
+    // 少し待ってからキャプチャ（チャートが描画完了していることを確保）
+    setTimeout(() => {
+      try {
+        const charts = [mainChart, rsiChart, macdChart, stochChart, atrChart, adxChart, volumeChart]
+          .map(r => r.current)
+          .filter(Boolean) as IChartApi[];
 
-    if (charts.length === 0) return;
+        if (charts.length === 0) return;
 
-    const canvases = charts.map(c => c.takeScreenshot());
-    const totalHeight = canvases.reduce((sum, c) => sum + c.height, 0);
-    const width = canvases[0].width;
+        const canvases = charts.map(c => c.takeScreenshot()).filter(c => c.width > 0 && c.height > 0);
+        if (canvases.length === 0) return;
 
-    const merged = document.createElement("canvas");
-    merged.width = width;
-    merged.height = totalHeight;
-    const ctx = merged.getContext("2d")!;
-    ctx.fillStyle = "#131722";
-    ctx.fillRect(0, 0, width, totalHeight);
+        const width = canvases[0].width;
+        const totalHeight = canvases.reduce((sum, c) => sum + c.height, 0);
 
-    let y = 0;
-    for (const c of canvases) {
-      ctx.drawImage(c, 0, y);
-      y += c.height;
-    }
+        const merged = document.createElement("canvas");
+        merged.width = width;
+        merged.height = totalHeight;
+        const ctx = merged.getContext("2d")!;
+        ctx.fillStyle = "#131722";
+        ctx.fillRect(0, 0, width, totalHeight);
 
-    const base64 = merged.toDataURL("image/png").split(",")[1];
-    onScreenshot(base64);
+        let y = 0;
+        for (const c of canvases) {
+          ctx.drawImage(c, 0, y);
+          y += c.height;
+        }
+
+        const base64 = merged.toDataURL("image/png").split(",")[1];
+        if (base64) onScreenshot(base64);
+      } catch (e) {
+        console.error("Screenshot failed:", e);
+      }
+    }, 100);
   };
 
   return (
