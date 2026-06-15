@@ -520,11 +520,13 @@ export default function TradingChart({
     };
   }, [candles, indicators]);
 
-  // Canvas: resize and redraw lines
+  // Canvas: setup redraw function when canvas becomes available
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = mainRef.current;
     if (!canvas || !container) return;
+    // すでにサイズが設定済みなら resize をスキップ（リスナー重複防止）
+    const alreadySetup = canvas.dataset.setup === "1";
 
     const redraw = () => {
       const ctx = canvas.getContext("2d");
@@ -576,17 +578,21 @@ export default function TradingChart({
 
     redrawRef.current = redraw;
 
-    const resize = () => {
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
-      redraw();
-    };
-
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
+    if (!alreadySetup) {
+      canvas.dataset.setup = "1";
+      const resize = () => {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        redrawRef.current?.();
+      };
+      resize();
+      window.addEventListener("resize", resize);
+      // クリーンアップは不要（canvas がアンマウントされれば自動解放）
+    } else {
+      redraw(); // サイズはそのままで再描画だけ
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loading]);
 
   const getPos = (e: React.MouseEvent<HTMLCanvasElement>): DrawPoint => {
     const rect = canvasRef.current!.getBoundingClientRect();
