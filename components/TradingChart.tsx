@@ -520,13 +520,12 @@ export default function TradingChart({
     };
   }, [candles, indicators]);
 
-  // Canvas: setup redraw function when canvas becomes available
+  // Canvas: setup on mount (canvas is always in DOM)
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = mainRef.current;
     if (!canvas || !container) return;
-    // すでにサイズが設定済みなら resize をスキップ（リスナー重複防止）
-    const alreadySetup = canvas.dataset.setup === "1";
+    const alreadySetup = false; // always setup fresh
 
     const redraw = () => {
       const ctx = canvas.getContext("2d");
@@ -579,7 +578,6 @@ export default function TradingChart({
     redrawRef.current = redraw;
 
     if (!alreadySetup) {
-      canvas.dataset.setup = "1";
       const resize = () => {
         canvas.width = container.clientWidth;
         canvas.height = container.clientHeight;
@@ -587,12 +585,10 @@ export default function TradingChart({
       };
       resize();
       window.addEventListener("resize", resize);
-      // クリーンアップは不要（canvas がアンマウントされれば自動解放）
-    } else {
-      redraw(); // サイズはそのままで再描画だけ
+      return () => window.removeEventListener("resize", resize);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, []);
 
   const getPos = (e: React.MouseEvent<HTMLCanvasElement>): DrawPoint => {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -754,23 +750,10 @@ export default function TradingChart({
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {!twelveDataKey && !isJapanese(symbol) && (
-        <div className="flex-1 flex items-center justify-center text-[#787b86]">
-          ⚙ APIキーを設定してください
-        </div>
-      )}
-      {twelveDataKey && loading && (
-        <div className="flex-1 flex items-center justify-center text-[#787b86]">
-          データ読み込み中...
-        </div>
-      )}
-      {error && (
-        <div className="p-4 text-red-400 text-sm">{error}</div>
-      )}
-      {!loading && !error && twelveDataKey && (
+    <div className="flex flex-col h-full relative">
+      {/* Symbol label bar */}
+      {!loading && !error && (twelveDataKey || isJapanese(symbol)) && (
         <>
-          {/* Symbol label bar */}
           <div className="px-3 py-1 text-xs text-[#787b86] border-b border-[#1e222d] flex items-center gap-3">
             <span className="text-[#d1d4dc] font-semibold">{symbol}</span>
             {candles.length > 0 && (() => {
@@ -841,22 +824,9 @@ export default function TradingChart({
             )}
           </div>
 
-          {/* Chart + canvas overlay */}
+          {/* Chart area */}
           <div className={`${mainFlex} min-h-0 relative`}>
             <div ref={mainRef} className="w-full h-full" />
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 w-full h-full"
-              style={{ pointerEvents: (drawMode || linesRef.current.length > 0) ? "auto" : "none" }}
-              onMouseDown={handleCanvasMouseDown}
-              onMouseMove={handleCanvasMouseMove}
-              onMouseUp={handleCanvasMouseUp}
-              onMouseLeave={handleCanvasMouseUp}
-              onClick={handleCanvasClick}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-            />
           </div>
           {/* Range selector bar — TradingView style */}
           <div className="flex items-center gap-0.5 px-3 py-1 border-t border-[#1e222d]">
@@ -913,6 +883,21 @@ export default function TradingChart({
           )}
         </>
       )}
+
+      {/* Canvas overlay — 常にDOMに存在、チャートエリアに重ねる */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        style={{ pointerEvents: (drawMode || linesRef.current.length > 0) ? "auto" : "none" }}
+        onMouseDown={handleCanvasMouseDown}
+        onMouseMove={handleCanvasMouseMove}
+        onMouseUp={handleCanvasMouseUp}
+        onMouseLeave={handleCanvasMouseUp}
+        onClick={handleCanvasClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      />
     </div>
   );
 }
