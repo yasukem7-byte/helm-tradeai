@@ -242,17 +242,31 @@ export default function TradingChart({
   const linesRef = useRef<DrawLine[]>([]);
   linesRef.current = lines;
 
-  // 日本株判定: 4桁数字 → Yahoo Finance経由
+  // 日本株判定
   const isJapanese = (sym: string) => /^\d{4}$/.test(sym.trim()) || /^\d{3}[A-Z]$/.test(sym.trim());
-  // Twelve Data非対応コモディティ → Yahoo Finance先物へマッピング
-  const yahooFuturesMap: Record<string, string> = { "XAG/USD": "SI=F", "XPT/USD": "PL=F" };
-  const toYahooSymbol = (sym: string) =>
-    isJapanese(sym) ? `${sym.trim()}.T` : (yahooFuturesMap[sym] ?? sym);
-  const useYahoo = (sym: string) => isJapanese(sym) || sym in yahooFuturesMap;
+
+  const toYahooSymbol = (sym: string): string => {
+    if (isJapanese(sym)) return `${sym.trim()}.T`;
+    const map: Record<string, string> = {
+      "XAU/USD": "GC=F", "XAG/USD": "SI=F", "XPT/USD": "PL=F",
+      "EUR/USD": "EURUSD=X", "USD/JPY": "JPY=X", "GBP/USD": "GBPUSD=X", "AUD/USD": "AUDUSD=X",
+      "BTC/USD": "BTC-USD", "ETH/USD": "ETH-USD",
+    };
+    return map[sym] ?? sym;
+  };
+
+  const fetchFromYahoo = async (sym: string, intv: string, rng: string) => {
+    const yahooSym = toYahooSymbol(sym);
+    const yahooRange = indicators.ma200 && ["1D","1W","1M","3M","6M"].includes(rng) ? "2Y" : rng;
+    const res = await fetch(`/api/yahoo?symbol=${encodeURIComponent(yahooSym)}&interval=${intv}&range=${yahooRange}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.candles as Candle[];
+  };
 
   // Fetch data
   useEffect(() => {
-    if (!twelveDataKey && !useYahoo(symbol)) return;
+    if (!twelveDataKey && !isJapanese(symbol)) return;
     setLoading(true);
     setError("");
     setCandles([]);
@@ -261,34 +275,32 @@ export default function TradingChart({
       try {
         let values: Candle[] = [];
 
-        if (useYahoo(symbol)) {
-          // Yahoo Finance経由（日本株・一部コモディティ）
-          const yahooSym = toYahooSymbol(symbol);
-          // MA200が有効なら1年以上のデータを取得
-          const yahooRange = indicators.ma200 && ["1D","1W","1M","3M","6M"].includes(range) ? "2Y" : range;
-          const res = await fetch(`/api/yahoo?symbol=${encodeURIComponent(yahooSym)}&interval=${interval}&range=${yahooRange}`);
-          const data = await res.json();
-          if (data.error) { setError(data.error); return; }
-          values = data.candles;
+        if (isJapanese(symbol)) {
+          // 日本株は常にYahoo Finance
+          values = await fetchFromYahoo(symbol, interval, range);
         } else {
-          // Twelve Data経由（海外株・FX・コモディティ）
-          // MA200が有効な場合は最低300本確保
-          const baseSize = outputsizeForRange(range, interval);
-          const outputsize = indicators.ma200 ? Math.max(baseSize, 300) : baseSize;
-          const res = await fetch(
-            `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${twelveDataKey}`
-          );
-          const data = await res.json();
-          if (data.status === "error") { setError(data.message || "データ取得エラー"); return; }
-          values = (data.values || [])
-            .reverse()
-            .map((v: { datetime: string; open: string; high: string; low: string; close: string }) => ({
-              time: Math.floor(new Date(v.datetime).getTime() / 1000),
-              open: parseFloat(v.open),
-              high: parseFloat(v.high),
-              low: parseFloat(v.low),
-              close: parseFloat(v.close),
-            }));
+          // まずTwelve Dataを試みる、失敗したらYahoo Financeにフォールバック
+          try {
+            const baseSize = outputsizeForRange(range, interval);
+            const outputsize = indicators.ma200 ? Math.max(baseSize, 300) : baseSize;
+            const res = await fetch(
+              `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${twelveDataKey}`
+            );
+            const data = await res.json();
+            if (data.status === "error") throw new Error(data.message);
+            values = (data.values || [])
+              .reverse()
+              .map((v: { datetime: string; open: string; high: string; low: string; close: string }) => ({
+                time: Math.floor(new Date(v.datetime).getTime() / 1000),
+                open: parseFloat(v.open),
+                high: parseFloat(v.high),
+                low: parseFloat(v.low),
+                close: parseFloat(v.close),
+              }));
+          } catch {
+            // Twelve Data失敗 → Yahoo Financeにフォールバック
+            values = await fetchFromYahoo(symbol, interval, range);
+          }
         }
 
         setCandles(values);
