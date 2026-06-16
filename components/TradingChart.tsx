@@ -245,6 +245,7 @@ export default function TradingChart({
   const drawModeRef = useRef(false);
   const draggingRef = useRef<{ lineIdx: number; point: "p1" | "p2" } | null>(null);
   const didDragRef = useRef(false);
+  const mouseDownNearPointRef = useRef(false);
   const redrawRef = useRef<(() => void) | null>(null);
 
   // 日本株判定
@@ -634,6 +635,7 @@ export default function TradingChart({
     const onMouseDown = (e: MouseEvent) => {
       const pos = getPos(e.clientX, e.clientY);
       const hit = findNear(pos);
+      mouseDownNearPointRef.current = !!hit;
       if (hit) { draggingRef.current = hit; didDragRef.current = false; }
     };
 
@@ -656,7 +658,11 @@ export default function TradingChart({
     const onMouseUp = () => { draggingRef.current = null; };
 
     const onClick = (e: MouseEvent) => {
-      if (didDragRef.current) { didDragRef.current = false; return; }
+      if (didDragRef.current || mouseDownNearPointRef.current) {
+        didDragRef.current = false;
+        mouseDownNearPointRef.current = false;
+        return;
+      }
       if (!drawModeRef.current) return;
       const p = getPos(e.clientX, e.clientY);
       if (!firstPointRef.current) {
@@ -676,6 +682,7 @@ export default function TradingChart({
       const t = e.touches[0];
       const pos = getPos(t.clientX, t.clientY);
       const hit = findNear(pos, 20);
+      mouseDownNearPointRef.current = !!hit;
       if (hit) { e.preventDefault(); draggingRef.current = hit; didDragRef.current = false; }
       else if (drawModeRef.current) e.preventDefault();
     };
@@ -697,7 +704,8 @@ export default function TradingChart({
     };
 
     const onTouchEnd = (e: TouchEvent) => {
-      if (draggingRef.current) { draggingRef.current = null; return; }
+      if (draggingRef.current) { draggingRef.current = null; mouseDownNearPointRef.current = false; return; }
+      if (mouseDownNearPointRef.current) { mouseDownNearPointRef.current = false; return; }
       if (!drawModeRef.current) return;
       e.preventDefault();
       const t = e.changedTouches[0];
