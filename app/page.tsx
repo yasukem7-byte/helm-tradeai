@@ -269,7 +269,6 @@ export default function Home() {
         onIntervalChange={handleIntervalChange}
         onToggleIndicator={toggleIndicator}
         onClearIndicators={clearAllIndicators}
-        onShare={shareUrl}
         onOpenSettings={() => setShowModal(true)}
         onAddWatch={addToWatchlist}
       />
