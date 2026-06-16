@@ -283,7 +283,7 @@ export default function TradingChart({
   useEffect(() => {
     const isIndex = ["SPX","NDX","DJI","NI225","VIX"].includes(symbol);
     const isFRED = FRED_SYMBOLS.includes(symbol);
-    if (!twelveDataKey && !isJapanese(symbol) && !isIndex && !isFRED) return;
+    // twelveDataKeyがなくてもYahoo Financeでフォールバック可能なので続行
     setLoading(true);
     setError("");
     setCandles([]);
@@ -299,26 +299,30 @@ export default function TradingChart({
           // 日本株・主要指数は常にYahoo Finance
           values = await fetchFromYahoo(symbol, interval, range);
         } else {
-          // まずTwelve Dataを試みる、失敗したらYahoo Financeにフォールバック
-          try {
-            const baseSize = outputsizeForRange(range, interval);
-            const outputsize = indicators.ma200 ? Math.max(baseSize, 300) : baseSize;
-            const res = await fetch(
-              `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${twelveDataKey}`
-            );
-            const data = await res.json();
-            if (data.status === "error") throw new Error(data.message);
-            values = (data.values || [])
-              .reverse()
-              .map((v: { datetime: string; open: string; high: string; low: string; close: string }) => ({
-                time: Math.floor(new Date(v.datetime).getTime() / 1000),
-                open: parseFloat(v.open),
-                high: parseFloat(v.high),
-                low: parseFloat(v.low),
-                close: parseFloat(v.close),
-              }));
-          } catch {
-            // Twelve Data失敗 → Yahoo Financeにフォールバック
+          // Twelve Dataキーがあれば使用、なければYahoo Financeへ直接フォールバック
+          if (twelveDataKey) {
+            try {
+              const baseSize = outputsizeForRange(range, interval);
+              const outputsize = indicators.ma200 ? Math.max(baseSize, 300) : baseSize;
+              const res = await fetch(
+                `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=${outputsize}&apikey=${twelveDataKey}`
+              );
+              const data = await res.json();
+              if (data.status === "error") throw new Error(data.message);
+              values = (data.values || [])
+                .reverse()
+                .map((v: { datetime: string; open: string; high: string; low: string; close: string }) => ({
+                  time: Math.floor(new Date(v.datetime).getTime() / 1000),
+                  open: parseFloat(v.open),
+                  high: parseFloat(v.high),
+                  low: parseFloat(v.low),
+                  close: parseFloat(v.close),
+                }));
+            } catch {
+              values = await fetchFromYahoo(symbol, interval, range);
+            }
+          } else {
+            // Twelve Dataキーなし → Yahoo Financeで取得
             values = await fetchFromYahoo(symbol, interval, range);
           }
         }
@@ -804,7 +808,7 @@ export default function TradingChart({
   return (
     <div ref={outerRef} className="flex flex-col h-full relative">
       {/* Symbol label bar */}
-      {!loading && !error && (twelveDataKey || isJapanese(symbol)) && (
+      {!loading && !error && (
         <>
           <div className="px-3 py-1 text-xs text-[#787b86] border-b border-[#1e222d] flex items-center gap-3">
             <span className="text-[#d1d4dc] font-semibold">{symbol}</span>
