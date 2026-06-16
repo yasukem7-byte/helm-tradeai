@@ -277,17 +277,30 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
           </div>
 
           <div className="p-2 border-t border-[#2a2e39] flex gap-1.5 items-center">
-            {/* Screenshot button */}
-            <button
-              onClick={onTakeScreenshot}
-              className="p-1.5 text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded transition-colors flex-shrink-0"
-              title="チャートをキャプチャしてAIに送る"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                <circle cx="12" cy="13" r="4"/>
-              </svg>
-            </button>
+            {/* ボタン縦並び */}
+            <div className="flex flex-col gap-1 flex-shrink-0">
+              {/* Screenshot button */}
+              <button
+                onClick={onTakeScreenshot}
+                className="p-1.5 text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded transition-colors"
+                title="チャートをキャプチャしてAIに送る"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </button>
+              {/* Attach image button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="p-1.5 text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded transition-colors"
+                title="画像を添付（ポートフォリオ・スクショ等）"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+              </button>
+            </div>
             <input
               ref={fileInputRef}
               type="file"
