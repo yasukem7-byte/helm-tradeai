@@ -300,7 +300,7 @@ export default function Home() {
 
       {/* ── Mobile layout ── */}
       <div
-        className="md:hidden flex-1 overflow-hidden"
+        className="md:hidden flex-1 overflow-hidden relative"
         onTouchStart={handleSwipeStart}
         onTouchEnd={handleSwipeEnd}
       >
