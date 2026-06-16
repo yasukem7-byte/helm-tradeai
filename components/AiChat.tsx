@@ -20,13 +20,29 @@ type Props = {
   onTakeScreenshot?: () => void;
 };
 
+const WELCOME = (symbol: string, interval: string) =>
+  `こんにちは！投資アドバイザーAIです。\n現在 **${symbol}** の${interval}チャートを表示中です。\nチャート画像を貼り付けて分析を依頼することもできます。`;
+
+const storageKey = (symbol: string) => `chat_history_${symbol}`;
+
+const loadHistory = (symbol: string, interval: string): Message[] => {
+  try {
+    const raw = localStorage.getItem(storageKey(symbol));
+    if (raw) return JSON.parse(raw) as Message[];
+  } catch { /* ignore */ }
+  return [{ role: "assistant", content: WELCOME(symbol, interval) }];
+};
+
+const saveHistory = (symbol: string, msgs: Message[]) => {
+  try {
+    // 画像データはサイズが大きいので保存時は除く
+    const toSave = msgs.map(m => ({ ...m, image: undefined }));
+    localStorage.setItem(storageKey(symbol), JSON.stringify(toSave));
+  } catch { /* ignore */ }
+};
+
 export default function AiChat({ apiKey, symbol, interval, indicators, screenshotImage, onScreenshotConsumed, onTakeScreenshot }: Props) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: `こんにちは！投資アドバイザーAIです。\n現在 **${symbol}** の${interval}チャートを表示中です。\nチャート画像を貼り付けて分析を依頼することもできます。`,
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => loadHistory(symbol, interval));
   const [input, setInput] = useState("");
   const [pendingImage, setPendingImage] = useState<ImageContent | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,19 +50,30 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingQuickRef = useRef<string | null>(null);
+  const currentSymbol = useRef(symbol);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // 銘柄が変わったら保存して履歴切り替え
   useEffect(() => {
-    setMessages([
-      {
-        role: "assistant",
-        content: `こんにちは！投資アドバイザーAIです。\n現在 **${symbol}** の${interval}チャートを表示中です。\nチャート画像を貼り付けて分析を依頼することもできます。`,
-      },
-    ]);
+    if (currentSymbol.current !== symbol) {
+      currentSymbol.current = symbol;
+      setMessages(loadHistory(symbol, interval));
+    }
   }, [symbol, interval]);
+
+  // メッセージが変わるたびにlocalStorageへ保存
+  useEffect(() => {
+    if (messages.length > 0) saveHistory(symbol, messages);
+  }, [messages, symbol]);
+
+  const clearHistory = () => {
+    const welcome = [{ role: "assistant" as const, content: WELCOME(symbol, interval) }];
+    setMessages(welcome);
+    localStorage.removeItem(storageKey(symbol));
+  };
 
   useEffect(() => {
     if (screenshotImage) {
@@ -261,7 +288,7 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
           )}
 
           {/* Quick suggestions */}
-          <div className="px-2 py-1.5 flex gap-1 flex-wrap border-t border-[#2a2e39]">
+          <div className="px-2 py-1.5 flex gap-1 flex-wrap border-t border-[#2a2e39] items-center">
             {["今の相場どう思う？", "買いサイン？", "リスクは？", "このチャート分析して"].map((s) => (
               <button
                 key={s}
@@ -274,6 +301,13 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
                 {s}
               </button>
             ))}
+            <button
+              onClick={clearHistory}
+              className="ml-auto text-[10px] text-[#434651] hover:text-red-400 px-1.5 py-1 rounded hover:bg-[#2a2e39] transition-colors flex-shrink-0"
+              title="会話をクリア"
+            >
+              クリア
+            </button>
           </div>
 
           <div className="p-2 border-t border-[#2a2e39] flex gap-1.5 items-center">
