@@ -42,23 +42,24 @@ export default function ApiKeyModal({ onSave, onClose }: Props) {
         <div className="mb-6">
           <label className="block text-gray-300 text-sm mb-1">
             Twelve Data APIキー（チャートデータ用）
+            <span className="text-gray-500 ml-1">※任意</span>
           </label>
           <input
             type="password"
             value={twelve}
             onChange={(e) => setTwelve(e.target.value)}
-            placeholder="your_twelve_data_key"
+            placeholder="your_twelve_data_key（省略可）"
             className="w-full bg-[#0f0f0f] border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
           />
           <p className="text-gray-500 text-xs mt-1">
-            取得先: twelvedata.com（無料プランあり）
+            取得先: twelvedata.com（無料プランあり）。未入力でもチャートは表示されます。
           </p>
         </div>
 
         <div className="flex gap-2">
           <button
             onClick={() => onSave(claude, twelve)}
-            disabled={!claude || !twelve}
+            disabled={!claude}
             className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded py-2 text-sm font-medium"
           >
             保存して開始
