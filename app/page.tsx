@@ -304,8 +304,8 @@ export default function Home() {
         onTouchStart={handleSwipeStart}
         onTouchEnd={handleSwipeEnd}
       >
-        {/* Chart tab */}
-        <div className={`w-full h-full flex flex-col ${mobileTab === "chart" ? "block" : "hidden"}`}>
+        {/* Chart tab — 常にレンダリング維持（スクリーンショットのため） */}
+        <div className={`w-full h-full flex flex-col ${mobileTab === "chart" ? "relative z-10" : "absolute inset-0 opacity-0 pointer-events-none -z-10"}`}>
           <TradingChart
             symbol={symbol} interval={interval} range={range}
             onRangeChange={setRange} indicators={indicators}
