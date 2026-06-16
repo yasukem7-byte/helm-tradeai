@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#131722"/>
+  <rect x="40" y="40" width="432" height="432" rx="60" fill="#1e222d"/>
+  <!-- チャートライン -->
+  <polyline points="60,380 160,260 230,300 320,160 420,200" fill="none" stroke="#26a69a" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- H文字 -->
+  <text x="256" y="470" font-family="Arial Black, sans-serif" font-size="72" font-weight="900" fill="#3b82f6" text-anchor="middle">HELM</text>
+</svg>

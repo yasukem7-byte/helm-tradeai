@@ -20,6 +20,17 @@ export const metadata: Metadata = {
     initialScale: 1,
     viewportFit: "cover",
   },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "HELM.TradeAI",
+  },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  themeColor: "#131722",
 };
 
 export default function RootLayout({
