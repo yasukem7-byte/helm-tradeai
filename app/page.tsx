@@ -62,8 +62,14 @@ export default function Home() {
     setTwelveDataKey(savedTwelveKey);
     if (!savedApiKey || !savedTwelveKey) setShowModal(true);
 
-    // ウォッチリストをlocalStorageから復元
-    const savedWl = localStorage.getItem("watchlist");
+    // ウォッチリストをlocalStorageから復元（バージョンが変わったらリセット）
+    const WL_VERSION = "v5";
+    const savedVersion = localStorage.getItem("watchlist_version");
+    if (savedVersion !== WL_VERSION) {
+      localStorage.removeItem("watchlist");
+      localStorage.setItem("watchlist_version", WL_VERSION);
+    }
+    const savedWl = savedVersion === WL_VERSION ? localStorage.getItem("watchlist") : null;
     const defaultWl: WatchItem[] = [
       // 主要指数
       { symbol: "SPX",    group: "主要指数" },
