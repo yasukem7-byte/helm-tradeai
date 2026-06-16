@@ -532,7 +532,7 @@ function WatchRow({
         {/* Symbol + name（幅広め） */}
         <div className="flex-1 min-w-0 ml-1">
           <div className={`text-xs font-semibold leading-tight ${isActive ? "text-blue-400" : "text-[#d1d4dc]"}`}>{item.symbol}</div>
-          {JP_NAMES[item.symbol] && <div className="text-[10px] text-[#787b86] truncate leading-tight">{JP_NAMES[item.symbol]}</div>}
+          {JP_NAMES[item.symbol] && <div className="text-[10px] text-[#787b86] leading-tight break-all">{JP_NAMES[item.symbol]}</div>}
         </div>
         {/* Change%のみ */}
         <div className={`text-xs font-mono flex-shrink-0 ${isUp ? "text-[#26a69a]" : "text-[#ef5350]"}`}>
