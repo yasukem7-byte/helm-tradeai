@@ -50,6 +50,82 @@ const SYMBOL_NAMES: Record<string, string> = {
 };
 const JP_NAMES = SYMBOL_NAMES; // 後方互換
 
+const SYMBOL_INFO: Record<string, string> = {
+  // 主要指数
+  "SPX": "S&P 500指数。米国大型株500社の時価総額加重平均。米国株市場全体の動きを示す代表的な指標。",
+  "NDX": "Nasdaq 100指数。ナスダック上場の主要テック100社。AAPL・MSFT・NVDAなど大型IT株が中心。",
+  "DJI": "ダウ工業株30種平均。米国の優良大型株30社の株価平均。歴史ある代表的な株価指数。",
+  "NI225": "日経平均株価。東証プライム上場の代表的な225銘柄の平均株価。日本株市場の指標。",
+  "VIX": "恐怖指数とも呼ばれる市場の変動率指数。20以上で警戒、30以上でパニック相場とされる。",
+  "T10Y2Y": "10年債と2年債の利回り差。マイナス（逆イールド）になると景気後退の前兆とされる。",
+  // コモディティ
+  "XAU/USD": "金（ゴールド）の対ドル価格。有事の安全資産。インフレヘッジとして機能する実物資産。",
+  "XAG/USD": "銀（シルバー）の対ドル価格。工業用需要と投資需要の両面を持つ。金より値動きが大きい。",
+  "XPT/USD": "プラチナの対ドル価格。自動車触媒・水素燃料電池向け需要。金より希少で産出量が少ない。",
+  "425A": "国内ETF。金価格に連動するGXゴールド（為替ヘッジなし）。円建てで金投資ができる。",
+  "424A": "国内ETF。金価格に連動するGXゴールド（為替ヘッジあり）。為替リスクを抑えた金投資。",
+  "GLDM": "米国ETF。SPDRゴールド・ミニシェアーズ。低コストで金価格に連動する米国上場ETF。",
+  // 為替
+  "EUR/USD": "ユーロ対米ドル。世界で最も取引量の多い通貨ペア。欧米の金利差が相場に影響。",
+  "USD/JPY": "米ドル対円。日米金利差に敏感。円安・円高が日本株や輸出企業業績に直結する。",
+  // 仮想通貨
+  "BTC/USD": "ビットコイン。世界最大の暗号通貨。デジタルゴールドとも呼ばれ機関投資家も参入。",
+  "ETH/USD": "イーサリアム。スマートコントラクト基盤。DeFi・NFT・Web3の基軸通貨的存在。",
+  // 米国株
+  "NVDA": "NVIDIA。AIチップ（GPU）世界最大手。データセンター向けH100が爆発的需要。AI相場の中心銘柄。",
+  "AMD": "Advanced Micro Devices。CPUとGPUを開発。IntelとNVIDIAの両方と競合するチップメーカー。",
+  "MU": "マイクロン・テクノロジー。DRAM・NANDフラッシュ大手。AI向けHBMメモリで注目。",
+  "LRCX": "ラム・リサーチ。半導体製造装置メーカー。エッチング装置で世界シェアトップクラス。",
+  "AVGO": "ブロードコム。半導体とインフラソフトウェア。AIネットワーク向けチップで急成長。",
+  "IBM": "IBM。エンタープライズAI・量子コンピュータ・ハイブリッドクラウドに注力する老舗IT企業。",
+  "INTC": "インテル。CPU最大手だったが競争激化で苦戦。製造部門（ファウンドリ）再建中。",
+  "MSFT": "マイクロソフト。Windows・Azure・Office 365。OpenAIに大規模出資しAI事業を強化。",
+  "GOOG": "Alphabet（Google）。検索・YouTube・GCP。Gemini AIでOpenAIに対抗。広告収益が柱。",
+  "META": "Meta Platforms。Facebook・Instagram・WhatsApp運営。VR（Quest）とAI Llamaにも注力。",
+  "AMZN": "Amazon。Eコマース＋クラウド（AWS）。AWSは世界最大のクラウドで高利益率事業。",
+  "PLTR": "Palantir。政府・企業向けAIデータ分析プラットフォーム。米軍との契約でも有名。",
+  "TSLA": "テスラ。EV世界最大手。自動運転・エネルギー貯蔵・ロボタクシー事業も展開。",
+  "V": "Visa。世界最大の決済ネットワーク。カード取引手数料ビジネスで安定的な収益を稼ぐ。",
+  "JEPQ": "JPMorganのNasdaq100カバードコールETF。毎月分配型。高配当が特徴の米国ETF。",
+  "BRKB": "バークシャー・ハサウェイB株。ウォーレン・バフェット率いる投資持株会社。多業種に分散。",
+  "ABBV": "アッヴィ。製薬大手。ヒュミラ（関節リウマチ薬）が主力。がん・免疫領域も強化。",
+  "KTOS": "クラトス・ディフェンス。ドローン・無人機・極超音速兵器を開発する米国防衛企業。",
+  "STRL": "スターリング・インフラ。インフラ建設大手。データセンター・電力インフラ需要で成長。",
+  "ONDS": "オンダス・ホールディングス。産業用ドローン・鉄道通信システムを手掛ける中小型株。",
+  "ONON": "On Running（オン）。スイス発スポーツシューズブランド。アスリートからカジュアルまで人気拡大。",
+  // 日本株
+  "7974": "任天堂。Switch・マリオ・ゼルダ等のゲーム機・ソフト。IP（知的財産）ビジネスも強化。",
+  "8306": "三菱UFJフィナンシャル・グループ。日本最大のメガバンク。金利上昇で収益改善期待。",
+  "8001": "伊藤忠商事。繊維・食料・エネルギー等幅広い総合商社。非資源分野に強み。",
+  "8058": "三菱商事。資源・エネルギー・インフラ・食料の総合商社。バフェットが投資で注目。",
+  "9432": "NTT。日本最大の通信キャリア。IOWN（次世代光通信）プロジェクトを推進。",
+  "8593": "三菱HCキャピタル。リース・ファイナンス大手。航空機・インフラ・再生可能エネルギーに投資。",
+  "5803": "フジクラ。電線・光ファイバーケーブル大手。AI向けデータセンター需要で急成長中。",
+  "6976": "太陽誘電。セラミックコンデンサー大手。スマホ・EV・AI基板向けに需要拡大。",
+  "285A": "キオクシア。NANDフラッシュメモリ大手。スマホ・SSD・データセンター向けに供給。",
+  "6701": "NEC。ITシステム・ネットワーク・生体認証。政府・企業向けDXソリューションを展開。",
+  "7011": "三菱重工業。防衛・航空・エネルギー。防衛費増額と脱炭素の恩恵を両方受ける大手。",
+  "7013": "IHI。航空エンジン・防衛・橋梁。次世代戦闘機エンジン開発でも注目される重工業大手。",
+  "186A": "アストロスケール。宇宙デブリ（ゴミ）除去ビジネスの先駆者。宇宙清掃衛星を開発。",
+  "485A": "パワーエックス。蓄電池・EV充電インフラ。再生可能エネルギーの普及を支えるインフラ企業。",
+  "5801": "古河電工。電線・光ファイバー・自動車部品。AIデータセンター向け光ケーブル需要で注目。",
+  "4004": "レゾナック（旧昭和電工）。半導体材料・化学品大手。CMP研磨材・フォトレジストを供給。",
+  "2036": "NN金ダブルブルETN。金価格の2倍の値動きを目指す国内上場証券（ETN）。レバレッジ型。",
+  "1540": "純金上場信託。現物の金地金に裏付けられた国内ETF。実物ゴールドと同等の価値を持つ。",
+  // レバレッジETF
+  "SSO": "ProShares Ultra S&P500。S&P500の日次2倍の値動きを目指す米国レバレッジETF。",
+  "QLD": "ProShares Ultra QQQ。Nasdaq100の日次2倍の値動きを目指す米国レバレッジETF。",
+  "USD": "ProShares Ultra Semiconductors。半導体セクターの日次2倍連動を目指すレバレッジETF。",
+  "ROM": "ProShares Ultra Technology。米テクノロジーセクターの日次2倍連動レバレッジETF。",
+  "UGL": "ProShares Ultra Gold。金価格の日次2倍の値動きを目指す米国レバレッジETF。",
+  "AGQ": "ProShares Ultra Silver。銀価格の日次2倍の値動きを目指す米国レバレッジETF。",
+  "1570": "NEXT FUNDS 日経平均レバレッジ・インデックス連動型ETF。日経平均の約2倍の値動き。",
+  "1358": "上場インデックスファンド日経レバレッジ2倍。日経平均の2倍を目指す国内レバレッジETF。",
+  "SOXL": "Direxion Daily Semiconductor Bull 3X ETF。SOX半導体指数の3倍連動。高リスク高リターン。",
+  "TECL": "Direxion Daily Technology Bull 3X ETF。テクノロジーセクターの3倍連動レバレッジETF。",
+  "TQQQ": "ProShares UltraPro QQQ。Nasdaq100の3倍連動。米国で最も取引量の多いレバレッジETF。",
+};
+
 const ALL_SYMBOLS = [
   // コモディティ・FX
   "XAU/USD","XAG/USD","EUR/USD","GBP/USD","USD/JPY","AUD/USD",
@@ -390,7 +466,9 @@ function WatchRow({
 }) {
   const [hovered, setHovered] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const isUp = (item.changePct ?? 0) >= 0;
+  const info = SYMBOL_INFO[item.symbol];
   const priceStr = item.price !== undefined
     ? item.price >= 1000 ? item.price.toLocaleString("en", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     : item.price >= 1 ? item.price.toFixed(3)
@@ -451,6 +529,34 @@ function WatchRow({
           : <span className="text-[#434651]">--</span>
         }
       </div>
+
+      {/* Info button */}
+      {info && (
+        <div className="relative flex-shrink-0 ml-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}
+            className={`w-4 h-4 flex items-center justify-center rounded-full border text-[9px] font-bold transition-colors ${
+              showInfo
+                ? "bg-[#3b82f6] border-[#3b82f6] text-white"
+                : "border-[#434651] text-[#434651] hover:border-[#787b86] hover:text-[#787b86]"
+            }`}
+          >
+            i
+          </button>
+          {showInfo && (
+            <div
+              className="absolute right-0 top-6 z-50 w-56 p-3 rounded-lg bg-[#1e222d] border border-[#3b82f6]/40 shadow-xl text-[11px] text-[#c9d1d9] leading-relaxed"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="font-bold text-[#3b82f6] mb-1">{item.symbol}</div>
+              {JP_NAMES[item.symbol] && (
+                <div className="text-[#787b86] text-[10px] mb-1.5">{JP_NAMES[item.symbol]}</div>
+              )}
+              {info}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
