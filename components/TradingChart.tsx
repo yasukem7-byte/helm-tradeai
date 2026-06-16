@@ -604,10 +604,11 @@ export default function TradingChart({
 
     redrawRef.current = redraw;
 
-    // サイズ設定
+    // サイズ設定 — canvasのCSS実寸に合わせる（getBoundingClientRectで座標と一致させる）
     const resize = () => {
-      canvas.width = container.clientWidth;
-      canvas.height = container.clientHeight;
+      const r = canvas.getBoundingClientRect();
+      canvas.width = r.width;
+      canvas.height = r.height;
       redrawRef.current?.();
     };
     resize();
