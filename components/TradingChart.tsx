@@ -238,6 +238,7 @@ export default function TradingChart({
   const [drawMode, setDrawMode] = useState(false);
   const [drawColor, setDrawColor] = useState("#38bdf8");
   const [, forceUpdate] = useState(0); // UI再描画用
+  const allLinesRef = useRef<Record<string, DrawLine[]>>({}); // シンボルごとの線
   const linesRef = useRef<DrawLine[]>([]);
   const firstPointRef = useRef<DrawPoint | null>(null);
   const mousePosRef = useRef<DrawPoint | null>(null);
@@ -279,6 +280,22 @@ export default function TradingChart({
     if (data.error) throw new Error(data.error);
     return data.candles as Candle[];
   };
+
+  // シンボル切替時に線を保存・復元
+  const prevSymbolRef = useRef(symbol);
+  useEffect(() => {
+    if (prevSymbolRef.current !== symbol) {
+      // 前のシンボルの線を保存
+      allLinesRef.current[prevSymbolRef.current] = linesRef.current;
+      // 新しいシンボルの線を復元
+      linesRef.current = allLinesRef.current[symbol] ?? [];
+      firstPointRef.current = null;
+      mousePosRef.current = null;
+      prevSymbolRef.current = symbol;
+      redrawRef.current?.();
+      forceUpdate(n => n + 1);
+    }
+  }, [symbol]);
 
   // Fetch data
   useEffect(() => {
