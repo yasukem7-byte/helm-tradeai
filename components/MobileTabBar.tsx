@@ -47,7 +47,7 @@ const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
 
 export default function MobileTabBar({ active, onChange }: Props) {
   return (
-    <div className="md:hidden flex border-t border-[#2a2e39] bg-[#1e222d] pb-safe">
+    <div className="md:hidden flex-shrink-0 flex border-t border-[#2a2e39] bg-[#1e222d] pb-safe relative z-50">
       {TABS.map(({ key, label, icon }) => (
         <button
           key={key}

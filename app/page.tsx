@@ -256,7 +256,7 @@ export default function Home() {
   const rightPanelTab = mobileTab === "ai" ? "ai" : "watch";
 
   return (
-    <div className="flex flex-col h-screen bg-[#131722] text-white select-none">
+    <div className="flex flex-col h-[100dvh] bg-[#131722] text-white select-none">
       {showModal && (
         <ApiKeyModal onSave={handleSaveKeys} onClose={() => setShowModal(false)} />
       )}
