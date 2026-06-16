@@ -489,74 +489,73 @@ function WatchRow({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* ドラッグハンドル */}
-      <div className={`w-3 flex-shrink-0 flex flex-col gap-0.5 mr-1 cursor-grab ${hovered ? "opacity-40" : "opacity-0"}`}>
-        <div className="w-2.5 h-px bg-[#787b86]" />
-        <div className="w-2.5 h-px bg-[#787b86]" />
-        <div className="w-2.5 h-px bg-[#787b86]" />
-      </div>
-
-      {/* 削除ボタン */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded text-[10px] transition-all ${
-          hovered ? "text-red-400 hover:bg-red-400/20" : "text-transparent"
-        }`}
-      >✕</button>
-
-      {/* Symbol + name */}
-      <div className="flex-1 min-w-0 ml-0.5">
-        <div className={`text-xs font-semibold truncate leading-tight ${isActive ? "text-blue-400" : "text-[#d1d4dc]"}`}>
-          {item.symbol}
+      {/* ── PC表示 ── */}
+      <div className="hidden md:contents">
+        {/* ドラッグハンドル */}
+        <div className={`w-3 flex-shrink-0 flex flex-col gap-0.5 mr-1 cursor-grab ${hovered ? "opacity-40" : "opacity-0"}`}>
+          <div className="w-2.5 h-px bg-[#787b86]" /><div className="w-2.5 h-px bg-[#787b86]" /><div className="w-2.5 h-px bg-[#787b86]" />
         </div>
-        {JP_NAMES[item.symbol] && (
-          <div className="text-[10px] text-[#787b86] truncate leading-tight">{JP_NAMES[item.symbol]}</div>
+        {/* 削除ボタン */}
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded text-[10px] transition-all ${hovered ? "text-red-400 hover:bg-red-400/20" : "text-transparent"}`}>✕</button>
+        {/* Symbol + name */}
+        <div className="flex-1 min-w-0 ml-0.5">
+          <div className={`text-xs font-semibold truncate leading-tight ${isActive ? "text-blue-400" : "text-[#d1d4dc]"}`}>{item.symbol}</div>
+          {JP_NAMES[item.symbol] && <div className="text-[10px] text-[#787b86] truncate leading-tight">{JP_NAMES[item.symbol]}</div>}
+        </div>
+        {/* Price */}
+        <div className="w-20 text-right flex-shrink-0">
+          {priceStr ? <span className="text-xs text-[#d1d4dc] font-mono">{priceStr}</span> : <span className="text-xs text-[#434651]">--</span>}
+        </div>
+        {/* Change% */}
+        <div className={`w-16 text-right flex-shrink-0 text-xs font-mono ${isUp ? "text-[#26a69a]" : "text-[#ef5350]"}`}>
+          {item.changePct !== undefined ? `${isUp ? "+" : ""}${item.changePct.toFixed(2)}%` : <span className="text-[#434651]">--</span>}
+        </div>
+        {/* Info */}
+        {info && (
+          <div className="relative flex-shrink-0 ml-1">
+            <button onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}
+              className={`w-4 h-4 flex items-center justify-center rounded-full border text-[9px] font-bold transition-colors ${showInfo ? "bg-[#3b82f6] border-[#3b82f6] text-white" : "border-[#434651] text-[#434651] hover:border-[#787b86] hover:text-[#787b86]"}`}>i</button>
+            {showInfo && (
+              <div className="absolute right-0 top-6 z-50 w-56 p-3 rounded-lg bg-[#1e222d] border border-[#3b82f6]/40 shadow-xl text-[11px] text-[#c9d1d9] leading-relaxed" onClick={(e) => e.stopPropagation()}>
+                <div className="font-bold text-[#3b82f6] mb-1">{item.symbol}</div>
+                {JP_NAMES[item.symbol] && <div className="text-[#787b86] text-[10px] mb-1.5">{JP_NAMES[item.symbol]}</div>}
+                {info}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Price */}
-      <div className="w-20 text-right flex-shrink-0">
-        {priceStr
-          ? <span className="text-xs text-[#d1d4dc] font-mono">{priceStr}</span>
-          : <span className="text-xs text-[#434651]">--</span>
-        }
-      </div>
-
-      {/* Change% */}
-      <div className={`w-16 text-right flex-shrink-0 text-xs font-mono ${isUp ? "text-[#26a69a]" : "text-[#ef5350]"}`}>
-        {item.changePct !== undefined
-          ? `${isUp ? "+" : ""}${item.changePct.toFixed(2)}%`
-          : <span className="text-[#434651]">--</span>
-        }
-      </div>
-
-      {/* Info button */}
-      {info && (
-        <div className="relative flex-shrink-0 ml-1">
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}
-            className={`w-4 h-4 flex items-center justify-center rounded-full border text-[9px] font-bold transition-colors ${
-              showInfo
-                ? "bg-[#3b82f6] border-[#3b82f6] text-white"
-                : "border-[#434651] text-[#434651] hover:border-[#787b86] hover:text-[#787b86]"
-            }`}
-          >
-            i
-          </button>
-          {showInfo && (
-            <div
-              className="absolute right-0 top-6 z-50 w-56 p-3 rounded-lg bg-[#1e222d] border border-[#3b82f6]/40 shadow-xl text-[11px] text-[#c9d1d9] leading-relaxed"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="font-bold text-[#3b82f6] mb-1">{item.symbol}</div>
-              {JP_NAMES[item.symbol] && (
-                <div className="text-[#787b86] text-[10px] mb-1.5">{JP_NAMES[item.symbol]}</div>
-              )}
-              {info}
-            </div>
-          )}
+      {/* ── モバイル表示 ── */}
+      <div className="md:hidden contents">
+        {/* Symbol + name（幅広め） */}
+        <div className="flex-1 min-w-0 ml-1">
+          <div className={`text-xs font-semibold leading-tight ${isActive ? "text-blue-400" : "text-[#d1d4dc]"}`}>{item.symbol}</div>
+          {JP_NAMES[item.symbol] && <div className="text-[10px] text-[#787b86] truncate leading-tight">{JP_NAMES[item.symbol]}</div>}
         </div>
-      )}
+        {/* Change%のみ */}
+        <div className={`text-xs font-mono flex-shrink-0 ${isUp ? "text-[#26a69a]" : "text-[#ef5350]"}`}>
+          {item.changePct !== undefined ? `${isUp ? "+" : ""}${item.changePct.toFixed(2)}%` : <span className="text-[#434651]">--</span>}
+        </div>
+        {/* Info */}
+        {info && (
+          <div className="relative flex-shrink-0 ml-2">
+            <button onClick={(e) => { e.stopPropagation(); setShowInfo((v) => !v); }}
+              className={`w-5 h-5 flex items-center justify-center rounded-full border text-[10px] font-bold transition-colors ${showInfo ? "bg-[#3b82f6] border-[#3b82f6] text-white" : "border-[#434651] text-[#434651]"}`}>i</button>
+            {showInfo && (
+              <div className="absolute right-0 top-7 z-50 w-64 p-3 rounded-lg bg-[#1e222d] border border-[#3b82f6]/40 shadow-xl text-[11px] text-[#c9d1d9] leading-relaxed" onClick={(e) => e.stopPropagation()}>
+                <div className="font-bold text-[#3b82f6] mb-1">{item.symbol}</div>
+                {JP_NAMES[item.symbol] && <div className="text-[#787b86] text-[10px] mb-1.5">{JP_NAMES[item.symbol]}</div>}
+                {info}
+              </div>
+            )}
+          </div>
+        )}
+        {/* 削除ボタン（モバイルは長押しor小さく） */}
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          className="ml-1 w-5 h-5 flex-shrink-0 flex items-center justify-center rounded text-[10px] text-[#434651] hover:text-red-400 active:text-red-400">✕</button>
+      </div>
     </div>
   );
 }
