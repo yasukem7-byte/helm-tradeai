@@ -137,6 +137,15 @@ export default function Home() {
       { symbol: "4004",  group: "日本株 素材・電線" },
       // 日本株 その他
       { symbol: "7974",  group: "日本株 その他" },
+      // 2倍レバレッジ ETF
+      { symbol: "SSO",   group: "2倍レバレッジ" },
+      { symbol: "QLD",   group: "2倍レバレッジ" },
+      { symbol: "USD",   group: "2倍レバレッジ" },
+      { symbol: "ROM",   group: "2倍レバレッジ" },
+      { symbol: "UGL",   group: "2倍レバレッジ" },
+      { symbol: "AGQ",   group: "2倍レバレッジ" },
+      { symbol: "1570",  group: "2倍レバレッジ" },
+      { symbol: "1358",  group: "2倍レバレッジ" },
       // 3倍レバレッジ ETF
       { symbol: "SOXL",  group: "3倍レバレッジ" },
       { symbol: "TECL",  group: "3倍レバレッジ" },

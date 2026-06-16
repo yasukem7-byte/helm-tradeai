@@ -29,6 +29,11 @@ const SYMBOL_NAMES: Record<string, string> = {
   "TSLA": "Tesla", "ONDS": "Ondas Holdings", "ONON": "On Running",
   "V": "Visa", "JEPQ": "JPMorgan Nasdaq ETF", "BRKB": "Berkshire Hathaway",
   "ABBV": "AbbVie", "GLDM": "SPDR Gold MiniShares",
+  // 2倍レバレッジ ETF
+  "SSO": "S&P500 2×", "QLD": "Nasdaq100 2×",
+  "USD": "半導体セクター 2×", "ROM": "米テクノロジー株 2×",
+  "UGL": "金価格 2×", "AGQ": "銀価格 2×",
+  "1570": "日経平均 約2×", "1358": "日経平均 約2×",
   // 3倍レバレッジ ETF
   "SOXL": "半導体株 3×", "TECL": "テクノロジー株 3×", "TQQQ": "Nasdaq100 3×",
   "SPY": "S&P 500 ETF", "QQQ": "Nasdaq 100 ETF",
