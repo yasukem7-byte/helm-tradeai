@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Indicators, WatchItem } from "@/app/page";
 import AiChat from "@/components/AiChat";
 
 const SYMBOL_NAMES: Record<string, string> = {
+  // 主要指数
+  "SPX": "S&P 500", "NDX": "Nasdaq 100", "DJI": "Dow Jones",
+  "NI225": "日経平均", "VIX": "恐怖指数 VIX",
+  "T10Y2Y": "逆イールド 10Y-2Y",
   // コモディティ
   "XAU/USD": "Gold", "XAG/USD": "Silver", "XPT/USD": "Platinum",
   // 為替
@@ -25,6 +29,8 @@ const SYMBOL_NAMES: Record<string, string> = {
   "TSLA": "Tesla", "ONDS": "Ondas Holdings", "ONON": "On Running",
   "V": "Visa", "JEPQ": "JPMorgan Nasdaq ETF", "BRKB": "Berkshire Hathaway",
   "ABBV": "AbbVie", "GLDM": "SPDR Gold MiniShares",
+  // 3倍レバレッジ ETF
+  "SOXL": "半導体株 3×", "TECL": "テクノロジー株 3×", "TQQQ": "Nasdaq100 3×",
   "SPY": "S&P 500 ETF", "QQQ": "Nasdaq 100 ETF",
   // 日本株
   "7203": "トヨタ", "6758": "ソニー", "9984": "ソフトバンクG",
@@ -84,6 +90,9 @@ export default function RightPanel({
 }: Props) {
   const [showAddSearch, setShowAddSearch] = useState(false);
   const [addSearch, setAddSearch] = useState("");
+  const collapseAllRef = useRef<(() => void) | null>(null);
+  const [allOpen, setAllOpen] = useState(false);
+  const toggleAllRef = useRef<((open: boolean) => void) | null>(null);
 
   const filteredAdd = ALL_SYMBOLS.filter(
     (s) =>
@@ -92,7 +101,7 @@ export default function RightPanel({
   );
 
   return (
-    <div className="w-full md:w-64 bg-[#1e222d] md:border-l border-[#2a2e39] flex flex-col h-full">
+    <div className={`w-full ${tab === "ai" ? "md:w-96" : "md:w-64"} bg-[#1e222d] md:border-l border-[#2a2e39] flex flex-col h-full transition-all duration-200`}>
       {/* Tabs */}
       <div className="flex border-b border-[#2a2e39]">
         <button
@@ -127,10 +136,25 @@ export default function RightPanel({
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* List header */}
           <div className="flex items-center px-3 py-1.5 border-b border-[#2a2e39]">
-            <div className="w-5 flex-shrink-0" />
-            <span className="text-[10px] text-[#787b86] flex-1">シンボル</span>
+            <div className="flex-1" />
             <span className="text-[10px] text-[#787b86] w-20 text-right">現在値</span>
             <span className="text-[10px] text-[#787b86] w-16 text-right">変動率</span>
+            <button
+              onClick={() => {
+                const next = !allOpen;
+                setAllOpen(next);
+                toggleAllRef.current?.(next);
+              }}
+              className="ml-3 flex items-center gap-0.5 text-[10px] text-[#787b86] hover:text-blue-400 flex-shrink-0 border border-[#2a2e39] rounded px-1.5 py-0.5 hover:border-blue-400 transition-colors"
+            >
+              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                {allOpen
+                  ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                }
+              </svg>
+              {allOpen ? "全閉" : "全開"}
+            </button>
           </div>
 
           {/* Watchlist items with groups */}
@@ -141,6 +165,8 @@ export default function RightPanel({
               onSelectSymbol={onSelectSymbol}
               onRemoveSymbol={onRemoveSymbol}
               onReorder={(newList) => onReorder?.(newList)}
+              collapseAllRef={collapseAllRef}
+              toggleAllRef={toggleAllRef}
             />
           </div>
 
@@ -228,19 +254,28 @@ export default function RightPanel({
 }
 
 function WatchlistWithGroups({
-  watchlist, activeSymbol, onSelectSymbol, onRemoveSymbol, onReorder,
+  watchlist, activeSymbol, onSelectSymbol, onRemoveSymbol, onReorder, collapseAllRef, toggleAllRef,
 }: {
   watchlist: WatchItem[];
   activeSymbol: string;
   onSelectSymbol: (s: string) => void;
   onRemoveSymbol: (s: string) => void;
   onReorder: (newList: WatchItem[]) => void;
+  collapseAllRef: React.MutableRefObject<(() => void) | null>;
+  toggleAllRef: React.MutableRefObject<((open: boolean) => void) | null>;
 }) {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const groupNames = [...new Set(watchlist.filter(w => w.group).map(w => w.group!))];
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(groupNames.map(g => [g, true]))
-  );
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  // 新しいグループは常に閉じた状態で追加
+  const effectiveCollapsed: Record<string, boolean> = {};
+  groupNames.forEach(g => { effectiveCollapsed[g] = collapsed[g] !== false; });
+
+  collapseAllRef.current = () =>
+    setCollapsed(Object.fromEntries(groupNames.map(g => [g, true])));
+  toggleAllRef.current = (open: boolean) =>
+    setCollapsed(Object.fromEntries(groupNames.map(g => [g, !open])));
   const dragSymbol = useRef<string | null>(null);
   const dragGroup = useRef<string | null>(null);
 
@@ -253,7 +288,7 @@ function WatchlistWithGroups({
   });
 
   const toggleGroup = (name: string) =>
-    setCollapsed((prev) => ({ ...prev, [name]: !prev[name] }));
+    setCollapsed((prev) => ({ ...prev, [name]: !effectiveCollapsed[name] }));
 
   const handleDragStart = (symbol: string, group: string | undefined) => {
     dragSymbol.current = symbol;
@@ -308,7 +343,7 @@ function WatchlistWithGroups({
             className="w-full flex items-center gap-1 px-3 py-2.5 md:py-1.5 bg-[#161b27] hover:bg-[#1e2535] border-t border-b border-[#2a2e39] transition-colors"
           >
             <svg
-              className={`w-3 h-3 text-[#787b86] transition-transform flex-shrink-0 ${collapsed[groupName] ? "-rotate-90" : ""}`}
+              className={`w-3 h-3 text-[#787b86] transition-transform flex-shrink-0 ${effectiveCollapsed[groupName] ? "-rotate-90" : ""}`}
               fill="none" viewBox="0 0 24 24" stroke="currentColor"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -316,7 +351,7 @@ function WatchlistWithGroups({
             <span className="text-[10px] text-[#787b86] uppercase tracking-wider font-medium">{groupName}</span>
             <span className="text-[10px] text-[#434651] ml-auto">{items.length}</span>
           </button>
-          {!collapsed[groupName] && items.map((item) => (
+          {!effectiveCollapsed[groupName] && items.map((item) => (
             <WatchRow
               key={item.symbol}
               item={item}

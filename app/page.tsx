@@ -65,10 +65,20 @@ export default function Home() {
     // ウォッチリストをlocalStorageから復元
     const savedWl = localStorage.getItem("watchlist");
     const defaultWl: WatchItem[] = [
+      // 主要指数
+      { symbol: "SPX",    group: "主要指数" },
+      { symbol: "NDX",    group: "主要指数" },
+      { symbol: "DJI",    group: "主要指数" },
+      { symbol: "NI225",  group: "主要指数" },
+      { symbol: "VIX",    group: "主要指数" },
+      { symbol: "T10Y2Y", group: "主要指数" },
       // コモディティ
       { symbol: "XAU/USD", group: "コモディティ" },
       { symbol: "XAG/USD", group: "コモディティ" },
       { symbol: "XPT/USD", group: "コモディティ" },
+      { symbol: "425A",    group: "コモディティ" },
+      { symbol: "424A",    group: "コモディティ" },
+      { symbol: "GLDM",    group: "コモディティ" },
       // 為替
       { symbol: "EUR/USD", group: "為替" },
       { symbol: "USD/JPY", group: "為替" },
@@ -102,7 +112,6 @@ export default function Home() {
       { symbol: "JEPQ",  group: "米国株 その他" },
       { symbol: "BRKB",  group: "米国株 その他" },
       { symbol: "ABBV",  group: "米国株 その他" },
-      { symbol: "GLDM",  group: "米国株 その他" },
       // 日本株 AI関連
       { symbol: "285A",  group: "日本株 AI関連" },
       { symbol: "5803",  group: "日本株 AI関連" },
@@ -123,13 +132,15 @@ export default function Home() {
       // 日本株 金・資源
       { symbol: "2036",  group: "日本株 金・資源" },
       { symbol: "1540",  group: "日本株 金・資源" },
-      { symbol: "425A",  group: "日本株 金・資源" },
-      { symbol: "424A",  group: "日本株 金・資源" },
       // 日本株 素材・電線
       { symbol: "5801",  group: "日本株 素材・電線" },
       { symbol: "4004",  group: "日本株 素材・電線" },
       // 日本株 その他
       { symbol: "7974",  group: "日本株 その他" },
+      // 3倍レバレッジ ETF
+      { symbol: "SOXL",  group: "3倍レバレッジ" },
+      { symbol: "TECL",  group: "3倍レバレッジ" },
+      { symbol: "TQQQ",  group: "3倍レバレッジ" },
     ];
     setWatchlist(savedWl ? JSON.parse(savedWl) : defaultWl);
 
@@ -179,6 +190,16 @@ export default function Home() {
 
   const toggleIndicator = (key: keyof Indicators) => {
     const next = { ...indicators, [key]: !indicators[key] };
+    setIndicators(next);
+    syncUrl(symbol, interval, next, watchlist);
+  };
+
+  const clearAllIndicators = () => {
+    const next: Indicators = {
+      ma20: false, ma50: false, ma200: false,
+      rsi: false, macd: false, bb: false, atr: false,
+      stoch: false, volume: false, fib: false, adx: false, ichimoku: false,
+    };
     setIndicators(next);
     syncUrl(symbol, interval, next, watchlist);
   };
@@ -247,6 +268,7 @@ export default function Home() {
         onSymbolChange={handleSymbolChange}
         onIntervalChange={handleIntervalChange}
         onToggleIndicator={toggleIndicator}
+        onClearIndicators={clearAllIndicators}
         onShare={shareUrl}
         onOpenSettings={() => setShowModal(true)}
         onAddWatch={addToWatchlist}

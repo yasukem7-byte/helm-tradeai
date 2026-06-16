@@ -256,6 +256,7 @@ export default function TradingChart({
       "XAU/USD": "GC=F", "XAG/USD": "SI=F", "XPT/USD": "PL=F",
       "EUR/USD": "EURUSD=X", "USD/JPY": "JPY=X", "GBP/USD": "GBPUSD=X", "AUD/USD": "AUDUSD=X",
       "BTC/USD": "BTC-USD", "ETH/USD": "ETH-USD",
+      "SPX": "^GSPC", "NDX": "^IXIC", "DJI": "^DJI", "NI225": "^N225", "VIX": "^VIX",
     };
     return map[sym] ?? sym;
   };
@@ -269,9 +270,20 @@ export default function TradingChart({
     return data.candles as Candle[];
   };
 
+  const FRED_SYMBOLS = ["T10Y2Y"];
+
+  const fetchFromFRED = async (sym: string) => {
+    const res = await fetch(`/api/fred?symbol=${encodeURIComponent(sym)}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    return data.candles as Candle[];
+  };
+
   // Fetch data
   useEffect(() => {
-    if (!twelveDataKey && !isJapanese(symbol)) return;
+    const isIndex = ["SPX","NDX","DJI","NI225","VIX"].includes(symbol);
+    const isFRED = FRED_SYMBOLS.includes(symbol);
+    if (!twelveDataKey && !isJapanese(symbol) && !isIndex && !isFRED) return;
     setLoading(true);
     setError("");
     setCandles([]);
@@ -280,8 +292,11 @@ export default function TradingChart({
       try {
         let values: Candle[] = [];
 
-        if (isJapanese(symbol)) {
-          // 日本株は常にYahoo Finance
+        if (isFRED) {
+          // FREDデータ（逆イールド等）
+          values = await fetchFromFRED(symbol);
+        } else if (isJapanese(symbol) || isIndex) {
+          // 日本株・主要指数は常にYahoo Finance
           values = await fetchFromYahoo(symbol, interval, range);
         } else {
           // まずTwelve Dataを試みる、失敗したらYahoo Financeにフォールバック
@@ -339,9 +354,15 @@ export default function TradingChart({
       layout: { background: { color: "#131722" }, textColor: "#b2b5be" },
       grid: { vertLines: { color: "#1e222d" }, horzLines: { color: "#1e222d" } },
       crosshair: { mode: 1 },
-      rightPriceScale: { borderColor: "#2a2e39" },
+      rightPriceScale: { borderColor: "#2a2e39", width: 60 },
       timeScale: { borderColor: "#2a2e39", timeVisible: true },
       autoSize: true,
+    };
+
+    // サブチャート用オプション（時間軸非表示・右スケール幅固定）
+    const subChartOpts = {
+      ...chartOpts,
+      timeScale: { borderColor: "#2a2e39", timeVisible: false, visible: false },
     };
 
     // Main chart
@@ -426,7 +447,7 @@ export default function TradingChart({
 
     // RSI chart
     if (indicators.rsi && rsiRef.current) {
-      const rc = createChart(rsiRef.current, { ...chartOpts });
+      const rc = createChart(rsiRef.current, { ...subChartOpts });
       rsiChart.current = rc;
       const rsiSeries = rc.addSeries(LineSeries, { color: "#a78bfa", lineWidth: 1, priceLineVisible: false });
       rsiSeries.setData(calcRSI(candles) as Parameters<typeof rsiSeries.setData>[0]);
@@ -444,7 +465,7 @@ export default function TradingChart({
 
     // MACD chart
     if (indicators.macd && macdRef.current) {
-      const mcc = createChart(macdRef.current, { ...chartOpts });
+      const mcc = createChart(macdRef.current, { ...subChartOpts });
       macdChart.current = mcc;
       const macdData = calcMACD(candles);
       const macdSeries = mcc.addSeries(LineSeries, { color: "#34d399", lineWidth: 1, priceLineVisible: false });
@@ -459,7 +480,7 @@ export default function TradingChart({
 
     // Stochastics
     if (indicators.stoch && stochRef.current) {
-      const sc = createChart(stochRef.current, { ...chartOpts });
+      const sc = createChart(stochRef.current, { ...subChartOpts });
       stochChart.current = sc;
       const { k, d } = calcStoch(candles);
       const kS = sc.addSeries(LineSeries, { color: "#3b82f6", lineWidth: 1, priceLineVisible: false });
@@ -476,7 +497,7 @@ export default function TradingChart({
 
     // ATR
     if (indicators.atr && atrRef.current) {
-      const ac = createChart(atrRef.current, { ...chartOpts });
+      const ac = createChart(atrRef.current, { ...subChartOpts });
       atrChart.current = ac;
       const atrData = calcATR(candles);
       const atrS = ac.addSeries(LineSeries, { color: "#a78bfa", lineWidth: 1, priceLineVisible: false });
@@ -487,7 +508,7 @@ export default function TradingChart({
 
     // DMI/ADX
     if (indicators.adx && adxRef.current) {
-      const dc = createChart(adxRef.current, { ...chartOpts });
+      const dc = createChart(adxRef.current, { ...subChartOpts });
       adxChart.current = dc;
       const adxData = calcADX(candles);
       const adxS = dc.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 2, priceLineVisible: false });
@@ -502,7 +523,7 @@ export default function TradingChart({
 
     // Volume
     if (indicators.volume && volumeRef.current) {
-      const vc = createChart(volumeRef.current, { ...chartOpts });
+      const vc = createChart(volumeRef.current, { ...subChartOpts });
       volumeChart.current = vc;
       const volS = vc.addSeries(HistogramSeries, { priceLineVisible: false });
       volS.setData(candles.map(c => ({
@@ -521,12 +542,13 @@ export default function TradingChart({
     };
   }, [candles, indicators]);
 
-  // Canvas: setup when chart area mounts
+  // Canvas: setup once on mount
   useEffect(() => {
+    // slight delay to ensure chart DOM is ready
+    const timer = setTimeout(() => {
     const canvas = canvasRef.current;
     const container = mainRef.current;
     if (!canvas || !container) return;
-    const alreadySetup = canvas.dataset.setup === "1";
 
     const redraw = () => {
       const ctx = canvas.getContext("2d");
@@ -709,8 +731,10 @@ export default function TradingChart({
       canvas.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("resize", resize);
     };
+    }, 200);
+    return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles]);
+  }, []);
 
   const updatePointerEvents = () => {
     if (canvasRef.current)
@@ -859,7 +883,7 @@ export default function TradingChart({
             <canvas
               ref={canvasRef}
               className="absolute inset-0 w-full h-full"
-              style={{ pointerEvents: "none" }}
+              style={{ pointerEvents: (drawMode || linesRef.current.length > 0) ? "auto" : "none" }}
             />
           </div>
           {/* Range selector bar — TradingView style */}

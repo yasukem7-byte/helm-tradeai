@@ -4,6 +4,7 @@ const YAHOO_MAP: Record<string, string> = {
   "XAU/USD": "GC=F", "XAG/USD": "SI=F", "XPT/USD": "PL=F",
   "EUR/USD": "EURUSD=X", "USD/JPY": "JPY=X", "GBP/USD": "GBPUSD=X", "AUD/USD": "AUDUSD=X",
   "BTC/USD": "BTC-USD", "ETH/USD": "ETH-USD",
+  "SPX": "^GSPC", "NDX": "^IXIC", "DJI": "^DJI", "NI225": "^N225", "VIX": "^VIX",
 };
 
 const isJP = (s: string) => /^\d{4}$/.test(s.trim()) || /^\d{3}[A-Z]$/.test(s.trim());
@@ -31,6 +32,26 @@ export async function GET(req: NextRequest) {
 
   const symList = symbols.split(",");
   const result: Record<string, { price: number; change: number; changePct: number }> = {};
+
+  // FREDシンボル（T10Y2Y等）
+  const FRED_SYMS = ["T10Y2Y"];
+  for (const sym of symList.filter(s => FRED_SYMS.includes(s))) {
+    try {
+      const res = await fetch(`https://fred.stlouisfed.org/graph/fredgraph.csv?id=${sym}`, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        next: { revalidate: 3600 },
+      });
+      const text = await res.text();
+      const lines = text.trim().split("\n").slice(1).filter(l => !l.includes("."));
+      if (lines.length >= 2) {
+        const last = parseFloat(lines[lines.length - 1].split(",")[1]);
+        const prev = parseFloat(lines[lines.length - 2].split(",")[1]);
+        if (!isNaN(last) && !isNaN(prev)) {
+          result[sym] = { price: last, change: last - prev, changePct: ((last - prev) / Math.abs(prev)) * 100 };
+        }
+      }
+    } catch { /* continue */ }
+  }
 
   const jpSyms = symList.filter((s) => isJP(s));
   const otherSyms = symList.filter((s) => !isJP(s));

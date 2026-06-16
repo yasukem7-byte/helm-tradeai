@@ -3,6 +3,19 @@
 import { useState } from "react";
 import { Indicators } from "@/app/page";
 
+const GLOSSARY: { term: string; reading: string; desc: string }[] = [
+  {
+    term: "デッドクロス",
+    reading: "Dead Cross",
+    desc: "短期移動平均線（20MA）が長期移動平均線（50MA）を上から下に突き抜けるサイン。下落トレンドへの転換シグナルとされ、売りのタイミングの目安になる。",
+  },
+  {
+    term: "逆イールド",
+    reading: "Inverted Yield Curve",
+    desc: "通常は長期金利＞短期金利だが、景気後退への懸念が高まると逆転し、短期金利＞長期金利になる状態。米国では「2年債利回り＞10年債利回り」が代表的な指標で、過去の景気後退（リセッション）をほぼ確実に先行して発生してきた。",
+  },
+];
+
 const INTERVALS = [
   { label: "1", value: "1min" },
   { label: "5", value: "5min" },
@@ -16,32 +29,32 @@ const INTERVALS = [
   { label: "年", value: "12month" },
 ];
 
-const IND_GROUPS: { group: string; items: { key: keyof Indicators; label: string }[] }[] = [
+const IND_GROUPS: { group: string; items: { key: keyof Indicators; label: string; color?: string | string[] }[] }[] = [
   {
     group: "トレンド",
     items: [
-      { key: "ma20", label: "MA 20" },
-      { key: "ma50", label: "MA 50" },
-      { key: "ma200", label: "MA 200" },
-      { key: "bb", label: "ボリンジャーバンド" },
+      { key: "ma20",     label: "MA 20",           color: "#eab308" },
+      { key: "ma50",     label: "MA 50",            color: "#60a5fa" },
+      { key: "ma200",    label: "MA 200",           color: "#f87171" },
+      { key: "bb",       label: "ボリンジャーバンド" },
       { key: "ichimoku", label: "一目均衡表" },
-      { key: "fib", label: "フィボナッチ" },
+      { key: "fib",      label: "フィボナッチ" },
     ],
   },
   {
     group: "オシレーター",
     items: [
-      { key: "rsi", label: "RSI" },
-      { key: "macd", label: "MACD" },
+      { key: "rsi",   label: "RSI" },
+      { key: "macd",  label: "MACD" },
       { key: "stoch", label: "ストキャスティクス" },
-      { key: "adx", label: "DMI / ADX" },
+      { key: "adx",   label: "DMI / ADX" },
     ],
   },
   {
     group: "その他",
     items: [
       { key: "volume", label: "出来高" },
-      { key: "atr", label: "ATR" },
+      { key: "atr",    label: "ATR" },
     ],
   },
 ];
@@ -58,6 +71,7 @@ type Props = {
   onSymbolChange: (s: string) => void;
   onIntervalChange: (i: string) => void;
   onToggleIndicator: (k: keyof Indicators) => void;
+  onClearIndicators: () => void;
   onShare: () => void;
   onOpenSettings: () => void;
   onAddWatch: (s: string) => void;
@@ -65,11 +79,12 @@ type Props = {
 
 export default function TopBar({
   symbol, interval, indicators,
-  onSymbolChange, onIntervalChange, onToggleIndicator,
+  onSymbolChange, onIntervalChange, onToggleIndicator, onClearIndicators,
   onShare, onOpenSettings, onAddWatch,
 }: Props) {
   const [showSymbolSearch, setShowSymbolSearch] = useState(false);
   const [showIndicators, setShowIndicators] = useState(false);
+  const [showGlossary, setShowGlossary] = useState(false);
   const [search, setSearch] = useState("");
 
   const filtered = SYMBOLS.filter((s) =>
@@ -168,16 +183,34 @@ export default function TopBar({
         </button>
         {showIndicators && (
           <div className="absolute top-full left-0 mt-1 w-52 bg-[#1e222d] border border-[#2a2e39] rounded shadow-xl z-50 max-h-[70vh] overflow-y-auto">
+            <div className="p-2 border-b border-[#2a2e39]">
+              <button
+                onClick={() => { onClearIndicators(); setShowIndicators(false); }}
+                className="w-full text-xs text-[#787b86] hover:text-orange-400 hover:bg-[#2a2e39] rounded px-2 py-1.5 text-left"
+              >
+                全OFF
+              </button>
+            </div>
             {IND_GROUPS.map(({ group, items }) => (
               <div key={group}>
                 <div className="px-3 py-1.5 text-[10px] text-[#434651] uppercase tracking-wider border-b border-[#2a2e39]">{group}</div>
-                {items.map(({ key, label }) => (
+                {items.map(({ key, label, color }) => (
                   <button
                     key={key}
                     onClick={() => onToggleIndicator(key)}
                     className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-[#2a2e39]"
                   >
-                    <span className={indicators[key] ? "text-blue-400" : "text-[#787b86]"}>{label}</span>
+                    <span className="flex items-center gap-2">
+                      {/* color swatch */}
+                      {color && (
+                        <span className="flex items-center gap-0.5 flex-shrink-0">
+                          {(Array.isArray(color) ? color.slice(0, 3) : [color]).map((c, i) => (
+                            <span key={i} style={{ backgroundColor: c }} className="inline-block w-4 h-[3px] rounded-full" />
+                          ))}
+                        </span>
+                      )}
+                      <span className={indicators[key] ? "text-blue-400" : "text-[#787b86]"}>{label}</span>
+                    </span>
                     <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
                       indicators[key] ? "bg-blue-600 border-blue-600" : "border-[#434651]"
                     }`}>
@@ -185,6 +218,37 @@ export default function TopBar({
                     </div>
                   </button>
                 ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="w-px h-5 bg-[#2a2e39]" />
+
+      {/* Glossary */}
+      <div className="relative">
+        <button
+          onClick={() => { setShowGlossary(!showGlossary); setShowIndicators(false); }}
+          className="flex items-center gap-1 px-2 py-1 text-xs text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          <span className="hidden md:inline">用語集</span>
+        </button>
+        {showGlossary && (
+          <div className="absolute top-full left-0 mt-1 w-72 bg-[#1e222d] border border-[#2a2e39] rounded shadow-xl z-50 max-h-[70vh] overflow-y-auto">
+            <div className="px-3 py-2 border-b border-[#2a2e39] text-[10px] text-[#434651] uppercase tracking-wider">
+              トレード用語集
+            </div>
+            {GLOSSARY.map(({ term, reading, desc }) => (
+              <div key={term} className="px-3 py-3 border-b border-[#2a2e39] last:border-0">
+                <div className="flex items-baseline gap-2 mb-1">
+                  <span className="text-sm font-semibold text-[#d1d4dc]">{term}</span>
+                  <span className="text-[10px] text-[#434651]">{reading}</span>
+                </div>
+                <p className="text-[11px] text-[#787b86] leading-relaxed">{desc}</p>
               </div>
             ))}
           </div>
