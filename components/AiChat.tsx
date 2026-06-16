@@ -4,11 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { Indicators } from "@/app/page";
 
 type ImageContent = { type: "image"; data: string; mediaType: string };
-type Message = {
-  role: "user" | "assistant";
-  content: string;
-  image?: ImageContent;
-};
+type Message = { role: "user" | "assistant"; content: string; image?: ImageContent };
+type Thread = { id: string; createdAt: number; title: string; messages: Message[] };
 
 type Props = {
   apiKey: string;
@@ -23,56 +20,108 @@ type Props = {
 const WELCOME = (symbol: string, interval: string) =>
   `こんにちは！投資アドバイザーAIです。\n現在 **${symbol}** の${interval}チャートを表示中です。\nチャート画像を貼り付けて分析を依頼することもできます。`;
 
-const storageKey = (symbol: string) => `chat_history_${symbol}`;
+const threadKey = (symbol: string) => `chat_threads_${symbol}`;
+const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
-const loadHistory = (symbol: string, interval: string): Message[] => {
+const loadThreads = (symbol: string, interval: string): Thread[] => {
   try {
-    const raw = localStorage.getItem(storageKey(symbol));
-    if (raw) return JSON.parse(raw) as Message[];
+    const raw = localStorage.getItem(threadKey(symbol));
+    if (raw) {
+      const threads = JSON.parse(raw) as Thread[];
+      if (threads.length > 0) return threads;
+    }
   } catch { /* ignore */ }
-  return [{ role: "assistant", content: WELCOME(symbol, interval) }];
+  return [{ id: genId(), createdAt: Date.now(), title: "新しい相談", messages: [{ role: "assistant", content: WELCOME(symbol, interval) }] }];
 };
 
-const saveHistory = (symbol: string, msgs: Message[]) => {
+const saveThreads = (symbol: string, threads: Thread[]) => {
   try {
-    // 画像データはサイズが大きいので保存時は除く
-    const toSave = msgs.map(m => ({ ...m, image: undefined }));
-    localStorage.setItem(storageKey(symbol), JSON.stringify(toSave));
+    const toSave = threads.map(t => ({
+      ...t,
+      messages: t.messages.map(m => ({ ...m, image: undefined })),
+    }));
+    localStorage.setItem(threadKey(symbol), JSON.stringify(toSave));
   } catch { /* ignore */ }
+};
+
+const formatDate = (ts: number) => {
+  const d = new Date(ts);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  if (isToday) return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
 };
 
 export default function AiChat({ apiKey, symbol, interval, indicators, screenshotImage, onScreenshotConsumed, onTakeScreenshot }: Props) {
-  const [messages, setMessages] = useState<Message[]>(() => loadHistory(symbol, interval));
+  const [threads, setThreads] = useState<Thread[]>(() => loadThreads(symbol, interval));
+  const [activeId, setActiveId] = useState<string>(() => loadThreads(symbol, interval)[0]?.id ?? "");
   const [input, setInput] = useState("");
   const [pendingImage, setPendingImage] = useState<ImageContent | null>(null);
   const [loading, setLoading] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingQuickRef = useRef<string | null>(null);
   const currentSymbol = useRef(symbol);
 
+  const activeThread = threads.find(t => t.id === activeId) ?? threads[0];
+  const messages = activeThread?.messages ?? [];
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // 銘柄が変わったら保存して履歴切り替え
+  // 銘柄切替
   useEffect(() => {
     if (currentSymbol.current !== symbol) {
       currentSymbol.current = symbol;
-      setMessages(loadHistory(symbol, interval));
+      const loaded = loadThreads(symbol, interval);
+      setThreads(loaded);
+      setActiveId(loaded[0]?.id ?? "");
     }
   }, [symbol, interval]);
 
-  // メッセージが変わるたびにlocalStorageへ保存
+  // 保存
   useEffect(() => {
-    if (messages.length > 0) saveHistory(symbol, messages);
-  }, [messages, symbol]);
+    if (threads.length > 0) saveThreads(symbol, threads);
+  }, [threads, symbol]);
 
-  const clearHistory = () => {
-    const welcome = [{ role: "assistant" as const, content: WELCOME(symbol, interval) }];
-    setMessages(welcome);
-    localStorage.removeItem(storageKey(symbol));
+  const updateMessages = (id: string, msgs: Message[]) => {
+    setThreads(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      // タイトルは最初のユーザーメッセージから生成
+      const firstUser = msgs.find(m => m.role === "user");
+      const title = firstUser ? firstUser.content.slice(0, 20) + (firstUser.content.length > 20 ? "…" : "") : t.title;
+      return { ...t, messages: msgs, title };
+    }));
+  };
+
+  const newThread = () => {
+    const t: Thread = {
+      id: genId(),
+      createdAt: Date.now(),
+      title: "新しい相談",
+      messages: [{ role: "assistant", content: WELCOME(symbol, interval) }],
+    };
+    setThreads(prev => [t, ...prev]);
+    setActiveId(t.id);
+    setInput("");
+    setPendingImage(null);
+  };
+
+  const deleteThread = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setThreads(prev => {
+      const next = prev.filter(t => t.id !== id);
+      if (next.length === 0) {
+        const t: Thread = { id: genId(), createdAt: Date.now(), title: "新しい相談", messages: [{ role: "assistant", content: WELCOME(symbol, interval) }] };
+        setActiveId(t.id);
+        return [t];
+      }
+      if (id === activeId) setActiveId(next[0].id);
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -80,21 +129,17 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
       const img: ImageContent = { type: "image", data: screenshotImage, mediaType: "image/png" };
       setPendingImage(img);
       onScreenshotConsumed?.();
-      // クイック質問から呼ばれた場合は自動送信
       if (pendingQuickRef.current) {
         const question = pendingQuickRef.current;
         pendingQuickRef.current = null;
         setInput(question);
-        // 次のレンダー後に送信（pendingImage と input がセットされてから）
         setTimeout(() => sendWithContext(question, img), 50);
       }
     }
   }, [screenshotImage]);
 
-  // Paste image from clipboard
   const handlePaste = (e: React.ClipboardEvent) => {
-    const items = e.clipboardData.items;
-    for (const item of Array.from(items)) {
+    for (const item of Array.from(e.clipboardData.items)) {
       if (item.type.startsWith("image/")) {
         const file = item.getAsFile();
         if (file) readImageFile(file);
@@ -107,7 +152,6 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result as string;
-      // result = "data:image/png;base64,XXXX"
       const [header, data] = result.split(",");
       const mediaType = header.match(/:(.*?);/)?.[1] || "image/png";
       setPendingImage({ type: "image", data, mediaType });
@@ -121,33 +165,12 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
     e.target.value = "";
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
-    if (file) readImageFile(file);
-  };
-
   const sendWithContext = async (overrideText?: string, overrideImage?: ImageContent) => {
     const text = overrideText ?? input;
     const image = overrideImage ?? pendingImage;
-    if ((!text.trim() && !image) || !apiKey || loading) return;
+    if ((!text.trim() && !image) || !apiKey || loading || !activeThread) return;
 
-    const activeIndicators = Object.entries(indicators)
-      .filter(([, v]) => v)
-      .map(([k]) => k)
-      .join(", ");
-
+    const activeIndicators = Object.entries(indicators).filter(([, v]) => v).map(([k]) => k).join(", ");
     const systemPrompt = `あなたは経験豊富な投資アドバイザーAIです。
 現在のチャート情報:
 - 銘柄: ${symbol}
@@ -164,26 +187,15 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
       image: image ?? undefined,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const newMessages = [...messages, userMessage];
+    updateMessages(activeThread.id, newMessages);
     setInput("");
     setPendingImage(null);
     setLoading(true);
 
     try {
-      // Build messages for API — support image content blocks
-      const apiMessages = [...messages, userMessage].map((m) => {
-        if (m.image) {
-          return {
-            role: m.role,
-            content: [
-              {
-                type: "image",
-                source: { type: "base64", media_type: m.image.mediaType, data: m.image.data },
-              },
-              { type: "text", text: m.content },
-            ],
-          };
-        }
+      const apiMessages = newMessages.map(m => {
+        if (m.image) return { role: m.role, content: [{ type: "image", source: { type: "base64", media_type: m.image.mediaType, data: m.image.data } }, { type: "text", text: m.content }] };
         return { role: m.role, content: m.content };
       });
 
@@ -199,34 +211,29 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
       }
 
       const data = await response.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.content }]);
+      updateMessages(activeThread.id, [...newMessages, { role: "assistant", content: data.content }]);
     } catch (e) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `エラー: ${e instanceof Error ? e.message : "不明なエラー"}` },
-      ]);
+      updateMessages(activeThread.id, [...newMessages, { role: "assistant", content: `エラー: ${e instanceof Error ? e.message : "不明なエラー"}` }]);
     } finally {
       setLoading(false);
     }
   };
 
-  const send = () => sendWithContext();
-
   return (
     <div
-      className={`flex flex-col h-full bg-[#1e222d] relative transition-colors ${dragging ? "bg-blue-900/30" : ""}`}
+      className={`flex h-full bg-[#1e222d] relative transition-colors ${dragging ? "bg-blue-900/30" : ""}`}
       onPaste={handlePaste}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={(e) => { e.preventDefault(); setDragging(false); }}
+      onDrop={(e) => { e.preventDefault(); setDragging(false); const f = Array.from(e.dataTransfer.files).find(f => f.type.startsWith("image/")); if (f) readImageFile(f); }}
     >
-      {/* Drag overlay */}
       {dragging && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center border-2 border-dashed border-blue-400 rounded pointer-events-none">
           <span className="text-3xl">🖼</span>
           <span className="text-blue-300 text-sm mt-2">ここにドロップ</span>
         </div>
       )}
+
       {!apiKey && (
         <div className="flex-1 flex flex-col items-center justify-center text-[#787b86] text-xs p-4 text-center gap-2">
           <span className="text-2xl">🤖</span>
@@ -237,128 +244,138 @@ export default function AiChat({ apiKey, symbol, interval, indicators, screensho
 
       {apiKey && (
         <>
-          <div className="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-3">
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[90%] rounded-lg px-3 py-2 text-xs whitespace-pre-wrap leading-relaxed ${
-                    m.role === "user" ? "bg-blue-600 text-white" : "bg-[#2a2e39] text-[#d1d4dc]"
-                  }`}
-                >
-                  {m.image && (
-                    <img
-                      src={`data:${m.image.mediaType};base64,${m.image.data}`}
-                      alt="添付画像"
-                      className="rounded mb-2 max-w-full"
-                    />
-                  )}
-                  {m.content}
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-[#2a2e39] rounded-lg px-3 py-2 text-xs text-[#787b86] flex gap-1">
-                  <span className="animate-bounce">●</span>
-                  <span className="animate-bounce" style={{animationDelay:"0.1s"}}>●</span>
-                  <span className="animate-bounce" style={{animationDelay:"0.2s"}}>●</span>
-                </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Pending image preview */}
-          {pendingImage && (
-            <div className="px-2 pt-2 border-t border-[#2a2e39]">
-              <div className="relative inline-block">
-                <img
-                  src={`data:${pendingImage.mediaType};base64,${pendingImage.data}`}
-                  alt="添付予定"
-                  className="h-20 rounded border border-[#2a2e39]"
-                />
-                <button
-                  onClick={() => setPendingImage(null)}
-                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center"
-                >
-                  ✕
-                </button>
+          {/* ── スレッドサイドバー ── */}
+          {sidebarOpen && (
+            <div className="w-24 flex-shrink-0 flex flex-col border-r border-[#2a2e39] bg-[#161b27]">
+              {/* 新規ボタン */}
+              <button
+                onClick={newThread}
+                className="flex items-center justify-center gap-1 py-2.5 px-1 text-[10px] text-blue-400 hover:bg-[#1e2535] border-b border-[#2a2e39] transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                新規相談
+              </button>
+              {/* スレッド一覧 */}
+              <div className="flex-1 overflow-y-auto">
+                {threads.map(t => (
+                  <div
+                    key={t.id}
+                    onClick={() => setActiveId(t.id)}
+                    className={`group relative px-2 py-2.5 cursor-pointer border-b border-[#2a2e39] transition-colors ${
+                      t.id === activeId ? "bg-[#2a2e39]" : "hover:bg-[#1e2535]"
+                    }`}
+                  >
+                    <div className={`text-[10px] font-medium leading-tight truncate ${t.id === activeId ? "text-blue-400" : "text-[#787b86]"}`}>
+                      {t.title}
+                    </div>
+                    <div className="text-[9px] text-[#434651] mt-0.5">{formatDate(t.createdAt)}</div>
+                    {/* 削除ボタン */}
+                    <button
+                      onClick={(e) => deleteThread(t.id, e)}
+                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-[#434651] hover:text-red-400 transition-opacity"
+                    >
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Quick suggestions */}
-          <div className="px-2 py-1.5 flex gap-1 flex-wrap border-t border-[#2a2e39] items-center">
-            {["今の相場どう思う？", "買いサイン？", "リスクは？", "このチャート分析して"].map((s) => (
+          {/* ── チャットエリア ── */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* チャットヘッダー */}
+            <div className="flex items-center gap-2 px-2 py-1.5 border-b border-[#2a2e39]">
               <button
-                key={s}
-                onClick={() => {
-                  pendingQuickRef.current = s;
-                  onTakeScreenshot?.();
-                }}
-                className="text-[10px] bg-[#2a2e39] hover:bg-[#363a45] text-[#787b86] hover:text-[#d1d4dc] rounded px-2 py-1 transition-colors"
+                onClick={() => setSidebarOpen(v => !v)}
+                className="p-1 text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded transition-colors flex-shrink-0"
+                title="スレッド一覧"
               >
-                {s}
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
               </button>
-            ))}
-            <button
-              onClick={clearHistory}
-              className="ml-auto text-[10px] text-[#434651] hover:text-red-400 px-1.5 py-1 rounded hover:bg-[#2a2e39] transition-colors flex-shrink-0"
-              title="会話をクリア"
-            >
-              クリア
-            </button>
-          </div>
+              <span className="text-[10px] text-[#787b86] truncate flex-1">{activeThread?.title ?? ""}</span>
+            </div>
 
-          <div className="p-2 border-t border-[#2a2e39] flex gap-1.5 items-center">
-            {/* ボタン縦並び */}
-            <div className="flex flex-col gap-1 flex-shrink-0">
-              {/* Screenshot button */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {messages.map((m, i) => (
+                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs whitespace-pre-wrap leading-relaxed ${
+                    m.role === "user" ? "bg-blue-600 text-white" : "bg-[#2a2e39] text-[#d1d4dc]"
+                  }`}>
+                    {m.image && <img src={`data:${m.image.mediaType};base64,${m.image.data}`} alt="添付画像" className="rounded mb-2 max-w-full" />}
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-[#2a2e39] rounded-lg px-3 py-2 text-xs text-[#787b86] flex gap-1">
+                    <span className="animate-bounce">●</span>
+                    <span className="animate-bounce" style={{ animationDelay: "0.1s" }}>●</span>
+                    <span className="animate-bounce" style={{ animationDelay: "0.2s" }}>●</span>
+                  </div>
+                </div>
+              )}
+              <div ref={bottomRef} />
+            </div>
+
+            {pendingImage && (
+              <div className="px-2 pt-2 border-t border-[#2a2e39]">
+                <div className="relative inline-block">
+                  <img src={`data:${pendingImage.mediaType};base64,${pendingImage.data}`} alt="添付予定" className="h-16 rounded border border-[#2a2e39]" />
+                  <button onClick={() => setPendingImage(null)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center">✕</button>
+                </div>
+              </div>
+            )}
+
+            {/* クイック質問 */}
+            <div className="px-2 py-1 flex gap-1 flex-wrap border-t border-[#2a2e39]">
+              {["今の相場どう思う？", "買いサイン？", "リスクは？", "このチャート分析して"].map(s => (
+                <button key={s} onClick={() => { pendingQuickRef.current = s; onTakeScreenshot?.(); }}
+                  className="text-[10px] bg-[#2a2e39] hover:bg-[#363a45] text-[#787b86] hover:text-[#d1d4dc] rounded px-2 py-1 transition-colors">
+                  {s}
+                </button>
+              ))}
+            </div>
+
+            {/* 入力エリア */}
+            <div className="p-2 border-t border-[#2a2e39] flex gap-1.5 items-center">
+              <div className="flex flex-col gap-1 flex-shrink-0">
+                <button onClick={onTakeScreenshot} className="p-1.5 text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded transition-colors" title="チャートをキャプチャ">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                </button>
+                <button onClick={() => fileInputRef.current?.click()} className="p-1.5 text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded transition-colors" title="画像を添付">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                </button>
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+              <textarea
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) sendWithContext(); }}
+                placeholder={"質問を入力...\nCmd+Enter→送信"}
+                className="flex-1 bg-[#131722] border border-[#2a2e39] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 placeholder-[#434651] resize-none"
+                rows={3}
+              />
               <button
-                onClick={onTakeScreenshot}
-                className="p-1.5 text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded transition-colors"
-                title="チャートをキャプチャしてAIに送る"
+                onClick={() => sendWithContext()}
+                disabled={(!input.trim() && !pendingImage) || loading}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded text-xs transition-colors"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                  <circle cx="12" cy="13" r="4"/>
-                </svg>
-              </button>
-              {/* Attach image button */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] rounded transition-colors"
-                title="画像を添付（ポートフォリオ・スクショ等）"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                </svg>
+                ↑
               </button>
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
-              }}
-              placeholder={"質問を入力...\nEnter→改行  Command+Enter→送信"}
-              className="flex-1 bg-[#131722] border border-[#2a2e39] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 placeholder-[#434651] resize-none"
-              rows={3}
-            />
-            <button
-              onClick={send}
-              disabled={(!input.trim() && !pendingImage) || loading}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded text-xs transition-colors"
-            >
-              ↑
-            </button>
           </div>
         </>
       )}
