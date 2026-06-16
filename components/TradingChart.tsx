@@ -807,6 +807,12 @@ export default function TradingChart({
 
   return (
     <div ref={outerRef} className="flex flex-col h-full relative">
+      {/* Canvas overlay — always in DOM so useEffect([]) can attach listeners */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full z-10"
+        style={{ pointerEvents: (drawMode || linesRef.current.length > 0) ? "auto" : "none" }}
+      />
       {/* Symbol label bar */}
       {!loading && !error && (
         <>
@@ -881,14 +887,9 @@ export default function TradingChart({
             )}
           </div>
 
-          {/* Chart area + canvas overlay */}
+          {/* Chart area (canvas is outside this block, always in DOM) */}
           <div className={`${mainFlex} min-h-0 relative`}>
             <div ref={mainRef} className="w-full h-full" />
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 w-full h-full"
-              style={{ pointerEvents: (drawMode || linesRef.current.length > 0) ? "auto" : "none" }}
-            />
           </div>
           {/* Range selector bar — TradingView style */}
           <div className="flex items-center gap-0.5 px-3 py-1 border-t border-[#1e222d]">
