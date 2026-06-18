@@ -9,7 +9,7 @@ export default function WebTrendsPage() {
         <div className="max-w-5xl mx-auto px-6 py-3 flex items-center gap-4">
           <a href="/" className="flex items-center gap-1.5">
             <div className="w-5 h-5 bg-blue-500 rounded flex items-center justify-center text-xs font-bold">H</div>
-            <span className="text-[#d1d4dc] font-semibold text-sm">HELM.TradeAI</span>
+            <span className="text-[#d1d4dc] font-semibold text-sm">HELM.</span>
           </a>
           <div className="w-px h-4 bg-[#21262d]" />
           <a href="/about" className="text-xs text-[#8b949e] hover:text-white transition-colors">システム解説</a>
