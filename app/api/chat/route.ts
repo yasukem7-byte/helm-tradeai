@@ -5,11 +5,13 @@ export async function POST(req: NextRequest) {
   try {
     const { apiKey, messages, system } = await req.json();
 
-    if (!apiKey) {
+    // サーバー環境変数を優先、なければクライアントのキーを使用
+    const effectiveKey = process.env.ANTHROPIC_API_KEY || apiKey;
+    if (!effectiveKey) {
       return NextResponse.json({ error: "APIキーが必要です" }, { status: 400 });
     }
 
-    const client = new Anthropic({ apiKey });
+    const client = new Anthropic({ apiKey: effectiveKey });
 
     const response = await client.messages.create({
       model: "claude-sonnet-4-6",

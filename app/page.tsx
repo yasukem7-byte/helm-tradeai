@@ -60,7 +60,7 @@ export default function Home() {
     const savedTwelveKey = localStorage.getItem("twelve_data_key") || "";
     setApiKey(savedApiKey);
     setTwelveDataKey(savedTwelveKey);
-    if (!savedApiKey) setShowModal(true);
+    if (!savedApiKey) setShowModal(false); // サーバー側環境変数で動作するため不要
 
     // ウォッチリストをlocalStorageから復元（バージョンが変わったらリセット）
     const WL_VERSION = "v5";
