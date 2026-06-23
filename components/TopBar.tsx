@@ -145,7 +145,7 @@ export default function TopBar({
       {/* Logo */}
       <div className="flex items-center gap-1 mr-2">
         <div className="w-5 h-5 bg-blue-500 rounded flex items-center justify-center text-xs font-bold">H</div>
-        <span className="text-[#d1d4dc] font-semibold text-xs hidden lg:block">HELM.TradeAI</span>
+        <span className="text-[#d1d4dc] font-semibold text-xs hidden lg:block">TradeAI</span>
       </div>
 
       <div className="w-px h-5 bg-[#2a2e39]" />
