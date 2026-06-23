@@ -1,6 +1,6 @@
 {
-  "name": "HELM.TradeAI - チャート投資分析",
-  "short_name": "HELM.TradeAI",
+  "name": "TradeAI - チャート投資分析",
+  "short_name": "TradeAI",
   "description": "AIチャート投資分析アプリ",
   "start_url": "/",
   "display": "standalone",

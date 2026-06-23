@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HELM.TradeAI - チャート投資分析",
+  title: "TradeAI - チャート投資分析",
   description: "RSI・MACD・移動平均線付きチャートとAI投資相談",
   viewport: {
     width: "device-width",
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "HELM.TradeAI",
+    title: "TradeAI",
   },
   icons: {
     icon: "/icon.svg",
