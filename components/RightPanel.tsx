@@ -182,7 +182,7 @@ export default function RightPanel({
   );
 
   return (
-    <div className={`w-full ${tab === "ai" ? "md:w-96" : "md:w-64"} bg-[#1e222d] md:border-l border-[#2a2e39] flex flex-col h-full transition-all duration-200`}>
+    <div className={`w-full ${tab === "ai" ? "md:w-[480px]" : "md:w-80"} bg-[#1e222d] md:border-l border-[#2a2e39] flex flex-col h-full transition-all duration-200`}>
       {/* Tabs */}
       <div className="flex border-b border-[#2a2e39]">
         <button
@@ -500,11 +500,11 @@ function WatchRow({
           className={`w-4 h-4 flex-shrink-0 flex items-center justify-center rounded text-[10px] transition-all ${hovered ? "text-red-400 hover:bg-red-400/20" : "text-transparent"}`}>✕</button>
         {/* Symbol + name */}
         <div className="flex-1 min-w-0 ml-0.5">
-          <div className={`text-xs font-semibold truncate leading-tight ${isActive ? "text-blue-400" : "text-[#d1d4dc]"}`}>{item.symbol}</div>
-          {JP_NAMES[item.symbol] && <div className="text-[10px] text-[#787b86] truncate leading-tight">{JP_NAMES[item.symbol]}</div>}
+          <div className={`text-xs font-semibold leading-tight ${isActive ? "text-blue-400" : "text-[#d1d4dc]"}`}>{item.symbol}</div>
+          {JP_NAMES[item.symbol] && <div className="text-[10px] text-[#787b86] leading-tight">{JP_NAMES[item.symbol]}</div>}
         </div>
         {/* Price */}
-        <div className="w-20 text-right flex-shrink-0">
+        <div className="w-24 text-right flex-shrink-0">
           {priceStr ? <span className="text-xs text-[#d1d4dc] font-mono">{priceStr}</span> : <span className="text-xs text-[#434651]">--</span>}
         </div>
         {/* Change% */}
